@@ -1,0 +1,14 @@
+model Note {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  title     String
+  content   Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project @relation(fields: [projectId], references: [id])
+  user      User    @relation(fields: [userId], references: [id])
+
+  @@index([projectId, userId])
+}

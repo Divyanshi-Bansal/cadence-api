@@ -1,0 +1,20 @@
+model User {
+  id        String   @id @default(cuid())
+  clerkId   String   @unique
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships     ProjectMember[]
+  createdProjects Project[]  @default([])
+  reportedTasks   Task[]     @default([])
+  assignedTasks   TaskAssignee[] @default([])
+  notes           Note[]     @default([])
+  comments        Comment[]  @default([])
+}
+
+3rd table
+ user1 - project1 -- role1
+ user1 - project2  - role2
+ user1 - project 3 - role

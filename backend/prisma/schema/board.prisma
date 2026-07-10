@@ -1,0 +1,21 @@
+model BoardStage {
+  id          String  @id @default(cuid())
+  projectId   String
+  name        String
+  order       Int
+  isDoneStage Boolean @default(false)
+
+  project     Project @relation(fields: [projectId], references: [id])
+  tasks       Task[]
+}
+
+model IssueType {
+  id        String   @id @default(cuid())
+  projectId String?
+  name      String
+  color     String?
+  isCustom  Boolean  @default(false)
+
+  project   Project? @relation(fields: [projectId], references: [id])
+  tasks     Task[]
+}
