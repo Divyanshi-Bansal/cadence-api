@@ -19,10 +19,10 @@ model Task {
   stage            BoardStage     @relation(fields: [stageId], references: [id])
   issueType        IssueType      @relation(fields: [issueTypeId], references: [id])
   parent           Task?          @relation("Subtasks", fields: [parentTaskId], references: [id])
-  subtasks         Task[]         @relation("Subtasks") @default([])
+  subtasks         Task[]         @relation("Subtasks")
   reporter         User           @relation(fields: [reporterId], references: [id])
-  assignees        TaskAssignee[] @default([])
-  comments         Comment[]      @default([])
+  assignees        TaskAssignee[] 
+  comments         Comment[]      
 
   @@index([projectId])
   @@index([stageId])
@@ -38,7 +38,3 @@ model TaskAssignee {
 
   @@unique([taskId, userId])
 }
-
-
-
-A - B

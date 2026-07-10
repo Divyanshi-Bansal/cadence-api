@@ -8,7 +8,7 @@ model Project {
   updatedAt   DateTime      @updatedAt
 
   workspace   Workspace?      @relation(fields: [workspaceId], references: [id])
-  createdBy   User            @relation("ProjectCreator", fields: [createdById], references: [id])
+  user        User            @relation("ProjectCreator", fields: [createdById], references: [id])
   members     ProjectMember[]
   stages      BoardStage[]
   issueTypes  IssueType[]

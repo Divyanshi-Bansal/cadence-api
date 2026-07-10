@@ -7,14 +7,9 @@ model User {
   updatedAt DateTime @updatedAt
 
   memberships     ProjectMember[]
-  createdProjects Project[]  @default([])
-  reportedTasks   Task[]     @default([])
-  assignedTasks   TaskAssignee[] @default([])
-  notes           Note[]     @default([])
-  comments        Comment[]  @default([])
+  createdProjects Project[]      @relation("ProjectCreator")
+  reportedTasks   Task[]
+  assignedTasks   TaskAssignee[]
+  notes           Note[]
+  comments        Comment[]
 }
-
-3rd table
- user1 - project1 -- role1
- user1 - project2  - role2
- user1 - project 3 - role
