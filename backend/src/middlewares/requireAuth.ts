@@ -1,10 +1,12 @@
 import { verifyToken } from '@clerk/backend';
 import { Request, Response, NextFunction } from 'express';
+import { userRepository } from '../repositories/userRepository';
 
 declare global {
   namespace Express {
     interface Request {
       userId: string;
+      clerkId: string;
       userEmail: string;
     }
   }
@@ -32,8 +34,13 @@ export async function requireAuth(
     });
 
     // `sub` is the Clerk user id (e.g. "user_2abc…")
-    req.userId    = payload.sub;
-    req.userEmail = typeof payload.email === 'string' ? payload.email : '';
+    const clerkId = payload.sub;
+    const userEmail = typeof payload.email === 'string' ? payload.email : '';
+
+    const user = await userRepository.upsert({clerkId, email: userEmail, name: null});
+    req.userId = user.id;
+    req.clerkId = clerkId;
+    req.userEmail = user.email;
 
     next();
   } catch (err) {
