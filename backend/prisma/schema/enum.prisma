@@ -18,3 +18,9 @@ enum Priority {
   HIGH
   URGENT
 }
+
+enum WorkspaceRole {
+  OWNER
+  MEMBER
+  VIEWER
+}
