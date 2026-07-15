@@ -1,8 +1,8 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { handleClerkWebhook } from './lib/clerkWebhook';
-import userRoutes from './routes/userRoutes';
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import { handleClerkWebhook } from "./lib/clerkWebhook";
+import userRoutes from "./routes/userRoutes";
 
 dotenv.config();
 
@@ -13,20 +13,20 @@ app.use(cors());
 // IMPORTANT: This route must be registered BEFORE express.json() so that svix
 // receives the raw Buffer body it needs to verify the HMAC signature.
 app.post(
-  '/api/webhooks/clerk',
-  express.raw({ type: 'application/json' }),
-  handleClerkWebhook
+  "/api/webhooks/clerk",
+  express.raw({ type: "application/json" }),
+  handleClerkWebhook,
 );
 
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
 });
 
-app.use('/api/users', userRoutes);
+app.use("/api/users", userRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on PORT ${PORT}`);

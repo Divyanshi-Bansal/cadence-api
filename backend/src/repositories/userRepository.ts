@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma';
+import { prisma } from "../lib/prisma";
 
 export interface CreateUserInput {
   clerkId: string;
@@ -19,7 +19,6 @@ const USER_PUBLIC_SELECT = {
   updatedAt: true,
 } as const;
 
-
 export const userRepository = {
   findByClerkId: async (clerkId: string) => {
     return prisma.user.findUnique({
@@ -28,11 +27,11 @@ export const userRepository = {
     });
   },
 
-  findByUserId: async (userId: string) =>{
+  findByUserId: async (userId: string) => {
     return prisma.user.findUnique({
-      where:{id: userId},
+      where: { id: userId },
       select: USER_PUBLIC_SELECT,
-    })
+    });
   },
 
   findByEmail: async (email: string) => {
@@ -52,12 +51,12 @@ export const userRepository = {
   },
 
   update: async (userId: string, data: UpdateUserInput) => {
-  return prisma.user.update({
-    where: { id: userId },
-    data,
-    select: USER_PUBLIC_SELECT,
-  });
-},
+    return prisma.user.update({
+      where: { id: userId },
+      data,
+      select: USER_PUBLIC_SELECT,
+    });
+  },
 
   deleteByClerkId: async (clerkId: string) => {
     return prisma.user.deleteMany({ where: { clerkId } });

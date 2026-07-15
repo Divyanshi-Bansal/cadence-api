@@ -1,6 +1,6 @@
-import { Webhook } from 'svix';
-import { Request, Response } from 'express';
-import { userRepository } from '../repositories/userRepository';
+import { Webhook } from "svix";
+import { Request, Response } from "express";
+import { userRepository } from "../repositories/userRepository";
 
 interface ClerkEmailAddress {
   email_address: string;
@@ -23,14 +23,14 @@ interface ClerkWebhookEvent {
 
 function getPrimaryEmail(data: ClerkUserData): string {
   const primary = data.email_addresses.find(
-    (e) => e.id === data.primary_email_address_id
+    (e) => e.id === data.primary_email_address_id,
   );
-  return primary?.email_address ?? '';
+  return primary?.email_address ?? "";
 }
 
 function getDisplayName(data: ClerkUserData): string | null {
   const parts = [data.first_name, data.last_name].filter(Boolean);
-  return parts.length > 0 ? parts.join(' ') : null;
+  return parts.length > 0 ? parts.join(" ") : null;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -47,21 +47,24 @@ function getDisplayName(data: ClerkUserData): string | null {
 //   user.updated  → update email / name in DB
 //   user.deleted  → delete User row from DB (cascades via Prisma relations)
 // ──────────────────────────────────────────────────────────────────────────────
-export async function handleClerkWebhook(req: Request, res: Response): Promise<void> {
+export async function handleClerkWebhook(
+  req: Request,
+  res: Response,
+): Promise<void> {
   const secret = process.env.CLERK_WEBHOOK_SECRET;
 
   if (!secret) {
-    console.error('[clerkWebhook] CLERK_WEBHOOK_SECRET is not set');
-    res.status(500).json({ error: 'Webhook secret not configured.' });
+    console.error("[clerkWebhook] CLERK_WEBHOOK_SECRET is not set");
+    res.status(500).json({ error: "Webhook secret not configured." });
     return;
   }
 
-  const svixId = req.headers['svix-id'] as string | undefined;
-  const svixTimestamp = req.headers['svix-timestamp'] as string | undefined;
-  const svixSignature = req.headers['svix-signature'] as string | undefined;
+  const svixId = req.headers["svix-id"] as string | undefined;
+  const svixTimestamp = req.headers["svix-timestamp"] as string | undefined;
+  const svixSignature = req.headers["svix-signature"] as string | undefined;
 
   if (!svixId || !svixTimestamp || !svixSignature) {
-    res.status(400).json({ error: 'Missing svix headers.' });
+    res.status(400).json({ error: "Missing svix headers." });
     return;
   }
 
@@ -69,13 +72,13 @@ export async function handleClerkWebhook(req: Request, res: Response): Promise<v
   try {
     const wh = new Webhook(secret);
     event = wh.verify(req.body as Buffer, {
-      'svix-id': svixId,
-      'svix-timestamp': svixTimestamp,
-      'svix-signature': svixSignature,
+      "svix-id": svixId,
+      "svix-timestamp": svixTimestamp,
+      "svix-signature": svixSignature,
     }) as ClerkWebhookEvent;
   } catch (err) {
-    console.error('[clerkWebhook] Signature verification failed:', err);
-    res.status(400).json({ error: 'Invalid webhook signature.' });
+    console.error("[clerkWebhook] Signature verification failed:", err);
+    res.status(400).json({ error: "Invalid webhook signature." });
     return;
   }
 
@@ -84,9 +87,9 @@ export async function handleClerkWebhook(req: Request, res: Response): Promise<v
 
   try {
     switch (type) {
-      case 'user.created': {
+      case "user.created": {
         const email = getPrimaryEmail(data);
-        const name  = getDisplayName(data);
+        const name = getDisplayName(data);
 
         await userRepository.upsert({ clerkId: data.id, email, name });
 
@@ -94,9 +97,9 @@ export async function handleClerkWebhook(req: Request, res: Response): Promise<v
         break;
       }
 
-      case 'user.updated': {
+      case "user.updated": {
         const email = getPrimaryEmail(data);
-        const name  = getDisplayName(data);
+        const name = getDisplayName(data);
 
         await userRepository.upsert({ clerkId: data.id, email, name });
 
@@ -104,7 +107,7 @@ export async function handleClerkWebhook(req: Request, res: Response): Promise<v
         break;
       }
 
-      case 'user.deleted': {
+      case "user.deleted": {
         await userRepository.deleteByClerkId(data.id);
         console.log(`[clerkWebhook] Deleted user clerkId=${data.id}`);
         break;
@@ -117,6 +120,8 @@ export async function handleClerkWebhook(req: Request, res: Response): Promise<v
     res.status(200).json({ received: true });
   } catch (err) {
     console.error(`[clerkWebhook] DB operation failed for event ${type}:`, err);
-    res.status(500).json({ error: 'Internal server error processing webhook.' });
+    res
+      .status(500)
+      .json({ error: "Internal server error processing webhook." });
   }
 }

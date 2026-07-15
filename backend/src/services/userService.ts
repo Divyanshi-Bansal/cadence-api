@@ -1,4 +1,4 @@
-import { userRepository } from '../repositories/userRepository';
+import { userRepository } from "../repositories/userRepository";
 
 /**
  * AppError is thrown by service methods when a business rule is violated.
@@ -7,19 +7,18 @@ import { userRepository } from '../repositories/userRepository';
 export class AppError extends Error {
   constructor(
     public readonly message: string,
-    public readonly statusCode: number = 400
+    public readonly statusCode: number = 400,
   ) {
     super(message);
-    this.name = 'AppError';
+    this.name = "AppError";
   }
 }
 
 export const userService = {
-  
   getProfile: async (clerkId: string, email: string, name?: string) => {
-    const user = await userRepository.upsert({clerkId, email, name});
+    const user = await userRepository.upsert({ clerkId, email, name });
     if (!user) {
-      throw new AppError('User not found.', 404);
+      throw new AppError("User not found.", 404);
     }
     return user;
   },
@@ -62,14 +61,14 @@ export const userService = {
       const user = await userRepository.update(userId, data);
       return user;
     } catch (err: any) {
-      if (err?.code === 'P2025') { //prisma specific error codes
-        throw new AppError('User not found.', 404);
+      if (err?.code === "P2025") {
+        //prisma specific error codes
+        throw new AppError("User not found.", 404);
       }
       throw err;
     }
   },
 };
-
 
 // thumb rule for working with prisma error codes:
 // findUnique, findFirst → return null → use if (!user)

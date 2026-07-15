@@ -4,7 +4,7 @@
  * Use `userService.signIn()` or `userService.signUp()` from the service layer instead.
  * This file is kept for reference only and will be removed in a future cleanup.
  */
-import { prisma } from './prisma';
+import { prisma } from "./prisma";
 
 interface ClerkUserPayload {
   clerkId: string;
