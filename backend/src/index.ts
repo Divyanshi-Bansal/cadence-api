@@ -1,31 +1,33 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { requireAuth } from './middlewares/requireAuth';
+import { handleClerkWebhook } from './lib/clerkWebhook';
+import userRoutes from './routes/userRoutes';
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
+
+// ── Clerk Webhook ─────────────────────────────────────────────────────────────
+// IMPORTANT: This route must be registered BEFORE express.json() so that svix
+// receives the raw Buffer body it needs to verify the HMAC signature.
+app.post(
+  '/api/webhooks/clerk',
+  express.raw({ type: 'application/json' }),
+  handleClerkWebhook
+);
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-// ── Public routes ────────────────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
-// ── Protected routes (every handler below requires a valid Clerk JWT) ────────
-// Example: GET /me  — returns the verified userId from the token
-app.get('/me', requireAuth, (req, res) => {
-  res.json({ userId: req.userId });
-});
-
-// TODO: mount feature routers here, e.g.:
-// import habitRoutes from './routes/habits';
-// app.use('/habits', requireAuth, habitRoutes);
+app.use('/api/users', userRoutes);
 
 app.listen(PORT, () => {
-  console.log(`Server running on PORT ${PORT}`);
+  console.log(`🚀 Server running on PORT ${PORT}`);
 });
