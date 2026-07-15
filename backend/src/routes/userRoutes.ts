@@ -14,9 +14,9 @@ const router = Router();
 router.post('/forgot-password', forgotPassword);
 
 // ── Protected ─────────────────────────────────────────────────────────────────
-router.post('/signup',  requireAuth, signUp);
-router.post('/signin',  requireAuth, signIn);
-router.get('/profile',       requireAuth, getUserProfile);
-router.patch('/profile',     requireAuth, updateProfile);
+// router.post('/signup', requireAuth, signUp);
+// router.post('/signin', requireAuth, signIn); //commented because in requireAuth we are using upsert, so user will be created automatically
+router.get('/profile', requireAuth, getUserProfile);
+router.patch('/profile', requireAuth, updateProfile);
 
 export default router;
