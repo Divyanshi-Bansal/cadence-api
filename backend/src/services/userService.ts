@@ -16,8 +16,8 @@ export class AppError extends Error {
 
 export const userService = {
   
-  getProfile: async (clerkId: string) => {
-    const user = await userRepository.findByClerkId(clerkId);
+  getProfile: async (clerkId: string, email: string, name?: string) => {
+    const user = await userRepository.upsert({clerkId, email, name});
     if (!user) {
       throw new AppError('User not found.', 404);
     }
@@ -57,15 +57,20 @@ export const userService = {
     // No throw — always returns void so the controller sends a 200.
   },
 
-  updateProfile: async (clerkId: string, data: { name?: string | null }) => {
+  updateProfile: async (userId: string, data: { name?: string | null }) => {
     try {
-      const user = await userRepository.update(clerkId, data);
+      const user = await userRepository.update(userId, data);
       return user;
     } catch (err: any) {
-      if (err?.code === 'P2025') {
+      if (err?.code === 'P2025') { //prisma specific error codes
         throw new AppError('User not found.', 404);
       }
       throw err;
     }
   },
 };
+
+
+// thumb rule for working with prisma error codes:
+// findUnique, findFirst → return null → use if (!user)
+// update, delete → throw P2025 → use try/catch + code check

@@ -30,7 +30,7 @@ function handleError(res: Response, err: unknown, label: string): void {
 
 export async function getUserProfile(req: Request, res: Response): Promise<void> {
   try {
-    const user = await userService.getProfile(req.userId);
+    const user = await userService.getProfile(req.userId, req.userEmail);
     res.json({ user });
   } catch (err) {
     handleError(res, err, 'getUserProfile');
@@ -68,6 +68,7 @@ export async function forgotPassword(req: Request, res: Response): Promise<void>
     handleError(res, err, 'forgotPassword');
   }
 }
+
 export async function updateProfile(req: Request, res: Response): Promise<void> {
   try {
     const data = updateUserSchema.parse(req.body);

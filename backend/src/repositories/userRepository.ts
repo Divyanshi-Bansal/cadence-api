@@ -28,6 +28,13 @@ export const userRepository = {
     });
   },
 
+  findByUserId: async (userId: string) =>{
+    return prisma.user.findUnique({
+      where:{id: userId},
+      select: USER_PUBLIC_SELECT,
+    })
+  },
+
   findByEmail: async (email: string) => {
     return prisma.user.findUnique({
       where: { email },
@@ -44,13 +51,13 @@ export const userRepository = {
     });
   },
 
-  update: async (clerkId: string, data: UpdateUserInput) => {
-    return prisma.user.update({
-      where: { clerkId },
-      data,
-      select: USER_PUBLIC_SELECT,
-    });
-  },
+  update: async (userId: string, data: UpdateUserInput) => {
+  return prisma.user.update({
+    where: { id: userId },
+    data,
+    select: USER_PUBLIC_SELECT,
+  });
+},
 
   deleteByClerkId: async (clerkId: string) => {
     return prisma.user.deleteMany({ where: { clerkId } });
