@@ -9,6 +9,7 @@ model Workspace {
   members       WorkspaceMember[]
   projects      Project[]
   status        WorkspaceStatus   @default(ACTIVE)
+  invitations Invitation[]
 }
 
 model WorkspaceMember{

@@ -13,4 +13,5 @@ model User {
   assignedTasks   TaskAssignee[]
   notes           Note[]
   comments        Comment[]
+  sentInvitations Invitation[]
 }

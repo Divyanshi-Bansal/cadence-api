@@ -29,3 +29,14 @@ enum WorkspaceStatus {
   ACTIVE
   INACTIVE
 }
+
+enum InvitationType{
+  WORKSPACE
+  PROJECT
+}
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
