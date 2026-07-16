@@ -8,6 +8,7 @@ model User {
 
   memberships     ProjectMember[]
   createdProjects Project[]      @relation("ProjectCreator")
+  workspaces      Workspace[]
   reportedTasks   Task[]
   assignedTasks   TaskAssignee[]
   notes           Note[]

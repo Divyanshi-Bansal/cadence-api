@@ -11,17 +11,16 @@ model Task {
   reporterId       String
   dueDate          DateTime?
   estimatedMinutes Int?
-  archivedAt       DateTime?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
-  project          Project        @relation(fields: [projectId], references: [id])
-  stage            BoardStage     @relation(fields: [stageId], references: [id])
-  issueType        IssueType      @relation(fields: [issueTypeId], references: [id])
-  parent           Task?          @relation("Subtasks", fields: [parentTaskId], references: [id])
+  project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  stage            BoardStage     @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  issueType        IssueType      @relation(fields: [issueTypeId], references: [id], onDelete: Cascade)
+  parent           Task?          @relation("Subtasks", fields: [parentTaskId], references: [id], onDelete: setNull)
   subtasks         Task[]         @relation("Subtasks")
   reporter         User           @relation(fields: [reporterId], references: [id])
-  assignees        TaskAssignee[] 
+  assignees        TaskAssignee[] @relation(onDelete: Cascade)
   comments         Comment[]      
 
   @@index([projectId])
@@ -33,7 +32,7 @@ model TaskAssignee {
   taskId   String
   userId   String
 
-  task     Task @relation(fields: [taskId], references: [id])
+  task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user     User @relation(fields: [userId], references: [id])
 
   @@unique([taskId, userId])

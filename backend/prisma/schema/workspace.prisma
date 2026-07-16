@@ -5,8 +5,10 @@ model Workspace {
   description   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  archivedAt    DateTime?
   members       WorkspaceMember[]
   projects      Project[]
+  status        WorkspaceStatus   @default(ACTIVE)
 }
 
 model WorkspaceMember{
