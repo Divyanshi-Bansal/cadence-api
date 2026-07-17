@@ -21,6 +21,7 @@ enum Priority {
 
 enum WorkspaceRole {
   OWNER
+  ADMIN
   MEMBER
   VIEWER
 }

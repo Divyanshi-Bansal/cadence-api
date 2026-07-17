@@ -29,31 +29,3 @@ model ProjectMember {
 
   @@unique([projectId, userId])
 }
-
-
-//if user deletes:
-show - deleted-user - comments, replies, project, workspace, in assigned tasks
-delete - notes, user
-
-//if workspace soft-delete/inactive:
-show - deleted workspace / workspaceName with inactive status - in user's workspace list
-user profile - show workspace , projects but unclickable with inactive status (owner can switch it on but others can't).
-disable - project page - (if user direct visits its page, then blured out everything and show a messgae "project's workspace is inactive, contact its owner"), tasks modal page
-- develop a separate page for blurred out pages and render it instead of showing the modal page.
-
-//if project can either delete or archieve or soft delete(status - active/inactive)
--delete - discard connections for (cascading delete) - all tasks, comments, replies, notes under the project every thing should be deleted
--archieve / soft delete - when clicked on it show the project with inactive status and disabled status in project page and tasks modal page. (render blurred out component).
--user project list - we show all projects (with all kind of status) - same as we show projects in workspace show page
--the only diff between archive and soft delete is soft-delete we can restore and archive we delete this project in 30 days of inactivity.
-
-//if comments get deleted 
-- then comment and its replies should get deleted. - cascading 
-
-//if task get deleted 
-- then task, task-comments, replies and task assignees should get deleted. - cascading
-- then task assignee row should get deleted.
-
-
-
-

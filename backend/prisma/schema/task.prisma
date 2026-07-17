@@ -17,10 +17,10 @@ model Task {
   project          Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   stage            BoardStage     @relation(fields: [stageId], references: [id], onDelete: Cascade)
   issueType        IssueType      @relation(fields: [issueTypeId], references: [id], onDelete: Cascade)
-  parent           Task?          @relation("Subtasks", fields: [parentTaskId], references: [id], onDelete: setNull)
+  parent           Task?          @relation("Subtasks", fields: [parentTaskId], references: [id], onDelete: SetNull)
   subtasks         Task[]         @relation("Subtasks")
   reporter         User           @relation(fields: [reporterId], references: [id])
-  assignees        TaskAssignee[] @relation(onDelete: Cascade)
+  assignees        TaskAssignee[]
   comments         Comment[]      
 
   @@index([projectId])
