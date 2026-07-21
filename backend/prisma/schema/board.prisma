@@ -10,12 +10,12 @@ model BoardStage {
 }
 
 model IssueType {
-  id        String   @id @default(cuid())
-  projectId String?
-  name      String
-  color     String?
-  isCustom  Boolean  @default(false)
+  id          String   @id @default(cuid())
+  projectId   String?
+  name        String
+  color       String?
+  isCustom    Boolean  @default(false)
 
-  project   Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  tasks     Task[]
+  project     Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks       Task[]
 }

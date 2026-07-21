@@ -1,7 +1,15 @@
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
 enum ProjectRole {
   OWNER
+  ADMIN
   MEMBER
-  GUEST
+  VIEWER
 }
 
 enum ProjectStatus {
@@ -12,29 +20,6 @@ enum ProjectStatus {
   INACTIVE
 }
 
-enum Priority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-enum WorkspaceRole {
-  OWNER
-  ADMIN
-  MEMBER
-  VIEWER
-}
-
-enum WorkspaceStatus {
-  ACTIVE
-  INACTIVE
-}
-
-enum InvitationType{
-  WORKSPACE
-  PROJECT
-}
 enum InvitationStatus {
   PENDING
   ACCEPTED

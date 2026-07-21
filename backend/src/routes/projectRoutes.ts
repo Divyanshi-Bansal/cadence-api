@@ -8,14 +8,14 @@ import {
   updateProject,
   deleteProject,
   getProjectMembers,
-  inviteProjectMember,
-  updateProjectMemberRole,
-  removeProjectMember,
+  inviteMember,
+  updateMemberRole,
+  removeMember,
 } from '../controllers/projectController';
 
 const router = Router();
 
-router.use(requireAuth);
+router.use(requireAuth); // every project route requires auth
 
 router.get('/', getAllProjects);
 router.post('/', createProject);
@@ -24,8 +24,8 @@ router.patch('/:projectId', requireProjectRole(['OWNER', 'ADMIN']), updateProjec
 router.delete('/:projectId', requireProjectRole(['OWNER']), deleteProject);
 
 router.get('/:projectId/members', getProjectMembers);
-router.post('/:projectId/members', requireProjectRole(['OWNER', 'ADMIN']), inviteProjectMember);
-router.patch('/:projectId/members/:userId', requireProjectRole(['OWNER', 'ADMIN']), updateProjectMemberRole);
-router.delete('/:projectId/members/:userId', requireProjectRole(['OWNER', 'ADMIN']), removeProjectMember);
+router.post('/:projectId/members', requireProjectRole(['OWNER', 'ADMIN']), inviteMember);
+router.patch('/:projectId/members/:userId', requireProjectRole(['OWNER', 'ADMIN']), updateMemberRole);
+router.delete('/:projectId/members/:userId', requireProjectRole(['OWNER', 'ADMIN']), removeMember);
 
 export default router;

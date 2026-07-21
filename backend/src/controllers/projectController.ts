@@ -4,8 +4,8 @@ import { projectService, AppError } from '../services/projectService';
 import {
   createProjectSchema,
   updateProjectSchema,
-  inviteProjectMemberSchema,
-  updateProjectMemberRoleSchema,
+  inviteMemberSchema,
+  updateMemberRoleSchema,
 } from '../validations/projectValidation';
 
 function handleError(res: Response, err: unknown, label: string): void {
@@ -26,7 +26,8 @@ function handleError(res: Response, err: unknown, label: string): void {
 
 export async function getAllProjects(req: Request, res: Response) {
   try {
-    res.json(await projectService.getAllForUser(req.userId));
+    const projects = await projectService.getAllForUser(req.userId);
+    res.json(projects);
   } catch (err) {
     handleError(res, err, 'getAllProjects');
   }
@@ -34,7 +35,8 @@ export async function getAllProjects(req: Request, res: Response) {
 
 export async function getProjectById(req: Request, res: Response) {
   try {
-    res.json(await projectService.getById(req.params.projectId as string, req.userId));
+    const project = await projectService.getById(req.params.projectId as string, req.userId);
+    res.json(project);
   } catch (err) {
     handleError(res, err, 'getProjectById');
   }
@@ -53,7 +55,8 @@ export async function createProject(req: Request, res: Response) {
 export async function updateProject(req: Request, res: Response) {
   try {
     const data = updateProjectSchema.parse(req.body);
-    res.json(await projectService.update(req.params.projectId as string, data));
+    const project = await projectService.update(req.params.projectId as string, data);
+    res.json(project);
   } catch (err) {
     handleError(res, err, 'updateProject');
   }
@@ -62,7 +65,7 @@ export async function updateProject(req: Request, res: Response) {
 export async function deleteProject(req: Request, res: Response) {
   try {
     await projectService.delete(req.params.projectId as string);
-    res.json({ success: true, message: 'Project and all related data deleted.' });
+    res.json({ success: true, message: 'Project deactivated successfully.' });
   } catch (err) {
     handleError(res, err, 'deleteProject');
   }
@@ -70,36 +73,38 @@ export async function deleteProject(req: Request, res: Response) {
 
 export async function getProjectMembers(req: Request, res: Response) {
   try {
-    res.json(await projectService.getMembers(req.params.projectId as string));
+    const members = await projectService.getMembers(req.params.projectId as string);
+    res.json(members);
   } catch (err) {
     handleError(res, err, 'getProjectMembers');
   }
 }
 
-export async function inviteProjectMember(req: Request, res: Response) {
+export async function inviteMember(req: Request, res: Response) {
   try {
-    const { email, role } = inviteProjectMemberSchema.parse(req.body);
+    const { email, role } = inviteMemberSchema.parse(req.body);
     await projectService.inviteMember(req.params.projectId as string, email, role);
     res.json({ success: true, message: 'User successfully added to the project.' });
   } catch (err) {
-    handleError(res, err, 'inviteProjectMember');
+    handleError(res, err, 'inviteMember');
   }
 }
 
-export async function updateProjectMemberRole(req: Request, res: Response) {
+export async function updateMemberRole(req: Request, res: Response) {
   try {
-    const { role } = updateProjectMemberRoleSchema.parse(req.body);
-    res.json(await projectService.updateMemberRole(req.params.projectId as string, req.params.userId as string, role));
+    const { role } = updateMemberRoleSchema.parse(req.body);
+    const updated = await projectService.updateMemberRole(req.params.projectId as string, req.params.userId as string, role);
+    res.json(updated);
   } catch (err) {
-    handleError(res, err, 'updateProjectMemberRole');
+    handleError(res, err, 'updateMemberRole');
   }
 }
 
-export async function removeProjectMember(req: Request, res: Response) {
+export async function removeMember(req: Request, res: Response) {
   try {
     await projectService.removeMember(req.params.projectId as string, req.params.userId as string);
     res.json({ success: true, message: 'Member removed from the project successfully.' });
   } catch (err) {
-    handleError(res, err, 'removeProjectMember');
+    handleError(res, err, 'removeMember');
   }
 }

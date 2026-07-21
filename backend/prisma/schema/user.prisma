@@ -6,9 +6,7 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  memberships     ProjectMember[]
-  createdProjects Project[]      @relation("ProjectCreator")
-  workspaces      WorkspaceMember[]
+  projects        ProjectMember[]
   reportedTasks   Task[]
   assignedTasks   TaskAssignee[]
   notes           Note[]

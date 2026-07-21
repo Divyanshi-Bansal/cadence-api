@@ -17,56 +17,46 @@ export const projectService = {
     return project;
   },
 
-  create: async (data: any, creatorId: string) => {
-    if (data.workspaceId) {
-      const workspace = await prisma.workspace.findUnique({ where: { id: data.workspaceId } });
-      if (workspace && workspace.status === 'INACTIVE') {
-        throw new AppError('Cannot create a project in an inactive workspace.', 400);
-      }
-    }
-    return projectRepository.create(data, creatorId);
-  },
+  create: (data: { name: string; projectType?: string; description?: string }, ownerId: string) =>
+    projectRepository.create(data, ownerId),
 
   update: async (projectId: string, data: any) => {
     const project = await prisma.project.findUnique({ where: { id: projectId } });
-    if (!project) throw new AppError('Project not found.', 404);
-
-    if (project.workspaceId) {
-      const workspace = await prisma.workspace.findUnique({ where: { id: project.workspaceId } });
-      if (workspace && workspace.status === 'INACTIVE') {
-        throw new AppError('Cannot update projects in an inactive workspace.', 400);
-      }
+    if (project && project.status === 'INACTIVE' && !data.status) {
+      throw new AppError('Cannot edit an inactive project. You must activate it first.', 400);
     }
     return projectRepository.update(projectId, data);
   },
 
-  delete: async (projectId: string) => {
-    const project = await prisma.project.findUnique({ where: { id: projectId } });
-    if (!project) throw new AppError('Project not found.', 404);
-
-    if (project.workspaceId) {
-      const workspace = await prisma.workspace.findUnique({ where: { id: project.workspaceId } });
-      if (workspace && workspace.status === 'INACTIVE') {
-        throw new AppError('Cannot delete projects in an inactive workspace.', 400);
-      }
-    }
-    return projectRepository.delete(projectId);
-  },
+  delete: (projectId: string) => projectRepository.delete(projectId),
 
   getMembers: (projectId: string) => projectRepository.getMembers(projectId),
 
-  inviteMember: async (projectId: string, email: string, role: string) => {
+  inviteMember: async (projectId: string, email: string, role: 'ADMIN' | 'MEMBER') => {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (project && project.status === 'INACTIVE') {
+      throw new AppError('Cannot invite members to an inactive project.', 400);
+    }
     const user = await projectRepository.findUserByEmail(email);
     if (!user) {
       throw new AppError('No account found with that email. They must sign up first.', 404);
-      // TODO: once email infra is decided, create an Invitation row here
-      // instead of throwing, so the person can be invited before signup.
     }
     return projectRepository.addOrUpdateMember(projectId, user.id, role);
   },
 
-  updateMemberRole: (projectId: string, userId: string, role: string) =>
-    projectRepository.updateMemberRole(projectId, userId, role),
+  updateMemberRole: async (projectId: string, userId: string, role: 'ADMIN' | 'MEMBER') => {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (project && project.status === 'INACTIVE') {
+      throw new AppError('Cannot update member roles in an inactive project.', 400);
+    }
+    return projectRepository.updateMemberRole(projectId, userId, role);
+  },
 
-  removeMember: (projectId: string, userId: string) => projectRepository.removeMember(projectId, userId),
+  removeMember: async (projectId: string, userId: string) => {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (project && project.status === 'INACTIVE') {
+      throw new AppError('Cannot remove members from an inactive project.', 400);
+    }
+    return projectRepository.removeMember(projectId, userId);
+  },
 };

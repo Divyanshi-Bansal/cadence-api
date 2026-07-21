@@ -4,7 +4,6 @@ import dotenv from "dotenv";
 import { handleClerkWebhook } from "./lib/clerkWebhook";
 import userRoutes from "./routes/userRoutes";
 import projectRoutes from "./routes/projectRoutes";
-import workspaceRoutes from "./routes/workspaceRoutes";
 
 dotenv.config();
 
@@ -30,7 +29,6 @@ app.get("/health", (_req, res) => {
 
 app.use("/api/users", userRoutes);
 app.use('/api/projects', projectRoutes);
-app.use('/api/workspaces', workspaceRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on PORT ${PORT}`);
