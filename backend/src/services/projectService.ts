@@ -1,4 +1,5 @@
 import { projectRepository } from '../repositories/projectRepository';
+import { prisma } from '../lib/prisma';
 
 export class AppError extends Error {
   constructor(public readonly message: string, public readonly statusCode: number = 400) {
@@ -16,11 +17,41 @@ export const projectService = {
     return project;
   },
 
-  create: (data: any, creatorId: string) => projectRepository.create(data, creatorId),
+  create: async (data: any, creatorId: string) => {
+    if (data.workspaceId) {
+      const workspace = await prisma.workspace.findUnique({ where: { id: data.workspaceId } });
+      if (workspace && workspace.status === 'INACTIVE') {
+        throw new AppError('Cannot create a project in an inactive workspace.', 400);
+      }
+    }
+    return projectRepository.create(data, creatorId);
+  },
 
-  update: (projectId: string, data: any) => projectRepository.update(projectId, data),
+  update: async (projectId: string, data: any) => {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new AppError('Project not found.', 404);
 
-  delete: (projectId: string) => projectRepository.delete(projectId),
+    if (project.workspaceId) {
+      const workspace = await prisma.workspace.findUnique({ where: { id: project.workspaceId } });
+      if (workspace && workspace.status === 'INACTIVE') {
+        throw new AppError('Cannot update projects in an inactive workspace.', 400);
+      }
+    }
+    return projectRepository.update(projectId, data);
+  },
+
+  delete: async (projectId: string) => {
+    const project = await prisma.project.findUnique({ where: { id: projectId } });
+    if (!project) throw new AppError('Project not found.', 404);
+
+    if (project.workspaceId) {
+      const workspace = await prisma.workspace.findUnique({ where: { id: project.workspaceId } });
+      if (workspace && workspace.status === 'INACTIVE') {
+        throw new AppError('Cannot delete projects in an inactive workspace.', 400);
+      }
+    }
+    return projectRepository.delete(projectId);
+  },
 
   getMembers: (projectId: string) => projectRepository.getMembers(projectId),
 

@@ -10,6 +10,7 @@ export const updateWorkspaceSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   workspaceType: z.string().max(50).optional(),
   description: z.string().max(500).optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
 });
 
 export const inviteMemberSchema = z.object({

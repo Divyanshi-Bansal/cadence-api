@@ -15,6 +15,7 @@ export const workspaceRepository = {
             workspaceType: m.workspace.workspaceType,
             description: m.workspace.description,
             role: m.role,
+            status: m.workspace.status,
             totalProjects: m.workspace._count.projects,
             createdAt: m.workspace.createdAt,
         }));
@@ -42,6 +43,7 @@ export const workspaceRepository = {
             workspaceType: workspace.workspaceType,
             description: workspace.description,
             role: member.role,
+            status: workspace.status,
             createdAt: workspace.createdAt,
             updatedAt: workspace.updatedAt,
             projects: workspace.projects.map((p) => ({
@@ -64,17 +66,15 @@ export const workspaceRepository = {
         });
     },
 
-    update: async (workspaceId: string, data: { name?: string; workspaceType?: string; description?: string }) => {
+    update: async (workspaceId: string, data: { name?: string; workspaceType?: string; description?: string; status?: 'ACTIVE' | 'INACTIVE' }) => {
         return prisma.workspace.update({ where: { id: workspaceId }, data });
     },
 
-    // Delete: no longer needs to manually null-out projects — Project.workspace
-    // is now `onDelete: SetNull` at the schema level, so Postgres handles it
-    // automatically. Simplify:
     delete: async (workspaceId: string) => {
-        return prisma.workspace.delete({ where: { id: workspaceId } });
-        // WorkspaceMember rows cascade-delete automatically (onDelete: Cascade).
-        // Project.workspaceId auto-sets to null automatically (onDelete: SetNull).
+        return prisma.workspace.update({
+            where: { id: workspaceId },
+            data: { status: 'INACTIVE' },
+        });
     },
 
     // getMembers: handle possible null user (deleted account)

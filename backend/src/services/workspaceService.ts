@@ -20,13 +20,23 @@ export const workspaceService = {
   create: (data: { name: string; workspaceType?: string; description?: string }, ownerId: string) =>
     workspaceRepository.create(data, ownerId),
 
-  update: (workspaceId: string, data: any) => workspaceRepository.update(workspaceId, data),
+  update: async (workspaceId: string, data: any) => {
+    const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (workspace && workspace.status === 'INACTIVE' && !data.status) {
+      throw new AppError('Cannot edit an inactive workspace. You must activate it first.', 400);
+    }
+    return workspaceRepository.update(workspaceId, data);
+  },
 
   delete: (workspaceId: string) => workspaceRepository.delete(workspaceId),
 
   getMembers: (workspaceId: string) => workspaceRepository.getMembers(workspaceId),
 
-  inviteMember: async (workspaceId: string, email: string, role: 'ADMIN' | 'MEMBER') => {
+   inviteMember: async (workspaceId: string, email: string, role: 'ADMIN' | 'MEMBER') => {
+    const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (workspace && workspace.status === 'INACTIVE') {
+      throw new AppError('Cannot invite members to an inactive workspace.', 400);
+    }
     const user = await workspaceRepository.findUserByEmail(email);
     if (!user) {
       throw new AppError('No account found with that email. They must sign up first.', 404);
@@ -34,11 +44,21 @@ export const workspaceService = {
     return workspaceRepository.addOrUpdateMember(workspaceId, user.id, role);
   },
 
-  updateMemberRole: (workspaceId: string, userId: string, role: 'ADMIN' | 'MEMBER') =>
-    workspaceRepository.updateMemberRole(workspaceId, userId, role),
+  updateMemberRole: async (workspaceId: string, userId: string, role: 'ADMIN' | 'MEMBER') => {
+    const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (workspace && workspace.status === 'INACTIVE') {
+      throw new AppError('Cannot update member roles in an inactive workspace.', 400);
+    }
+    return workspaceRepository.updateMemberRole(workspaceId, userId, role);
+  },
 
-  removeMember: (workspaceId: string, userId: string) =>
-    workspaceRepository.removeMember(workspaceId, userId),
+  removeMember: async (workspaceId: string, userId: string) => {
+    const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+    if (workspace && workspace.status === 'INACTIVE') {
+      throw new AppError('Cannot remove members from an inactive workspace.', 400);
+    }
+    return workspaceRepository.removeMember(workspaceId, userId);
+  },
 
   getProjects: (workspaceId: string) => workspaceRepository.getProjects(workspaceId),
 
@@ -48,8 +68,16 @@ export const workspaceService = {
     newWorkspaceId: string,
     userId: string
   ) => {
-    // Confirm the requester has rights in the TARGET workspace too — not just
-    // the source (already checked by requireWorkspaceRole on the route).
+    // Confirm workspaces are active
+    const sourceWorkspace = await prisma.workspace.findUnique({ where: { id: currentWorkspaceId } });
+    if (sourceWorkspace && sourceWorkspace.status === 'INACTIVE') {
+      throw new AppError('Cannot move projects from an inactive workspace.', 400);
+    }
+    const targetWorkspace = await prisma.workspace.findUnique({ where: { id: newWorkspaceId } });
+    if (targetWorkspace && targetWorkspace.status === 'INACTIVE') {
+      throw new AppError('Cannot move projects to an inactive workspace.', 400);
+    }
+
     const targetMembership = await prisma.workspaceMember.findUnique({
       where: { workspaceId_userId: { workspaceId: newWorkspaceId, userId } },
     });

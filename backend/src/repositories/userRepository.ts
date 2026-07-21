@@ -42,10 +42,30 @@ export const userRepository = {
   },
 
   upsert: async ({ clerkId, email, name }: CreateUserInput) => {
-    return prisma.user.upsert({
+    const existingByClerk = await prisma.user.findUnique({
       where: { clerkId },
-      update: { email, name: name ?? null },
-      create: { clerkId, email, name: name ?? null },
+    });
+    if (existingByClerk) {
+      return prisma.user.update({
+        where: { clerkId },
+        data: { email, name: name ?? null },
+        select: USER_PUBLIC_SELECT,
+      });
+    }
+
+    const existingByEmail = await prisma.user.findUnique({
+      where: { email },
+    });
+    if (existingByEmail) {
+      return prisma.user.update({
+        where: { email },
+        data: { clerkId, name: name ?? null },
+        select: USER_PUBLIC_SELECT,
+      });
+    }
+
+    return prisma.user.create({
+      data: { clerkId, email, name: name ?? null },
       select: USER_PUBLIC_SELECT,
     });
   },
