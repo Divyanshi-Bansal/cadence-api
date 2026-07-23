@@ -1,5 +1,17 @@
 import { prisma } from '../lib/prisma';
 import { Priority } from '@prisma/client';
+import { formatUser } from '../lib/userFormat';
+
+function formatTask(task: any) {
+  if (!task) return null;
+  return {
+    ...task,
+    assignees: task.assignees?.map((a: any) => ({
+      ...a,
+      user: a.user ? formatUser(a.user) : null,
+    })),
+  };
+}
 
 export const taskRepository = {
   create: async (data: {
@@ -14,13 +26,11 @@ export const taskRepository = {
   }) => {
     let issueTypeId = data.issueTypeId;
     
-    // If no issue type was specified, find the first one for the project
     if (!issueTypeId) {
       const firstType = await prisma.issueType.findFirst({
         where: { projectId: data.projectId },
       });
       if (!firstType) {
-        // Fallback: create a custom default IssueType if none exists
         const newType = await prisma.issueType.create({
           data: { projectId: data.projectId, name: 'Task', isCustom: false },
         });
@@ -52,10 +62,12 @@ export const taskRepository = {
         });
       }
 
-      return tx.task.findUnique({
+      const created = await tx.task.findUnique({
         where: { id: task.id },
         include: { assignees: { include: { user: true } } },
       });
+
+      return formatTask(created);
     });
   },
 
@@ -75,18 +87,16 @@ export const taskRepository = {
     const { assigneeIds, ...scalarFields } = data;
 
     return prisma.$transaction(async (tx) => {
-      const updatedTask = await tx.task.update({
+      await tx.task.update({
         where: { id: taskId },
         data: scalarFields,
       });
 
       if (assigneeIds !== undefined) {
-        // Clear existing assignees
         await tx.taskAssignee.deleteMany({
           where: { taskId },
         });
 
-        // Insert new assignees
         if (assigneeIds.length > 0) {
           await tx.taskAssignee.createMany({
             data: assigneeIds.map((userId) => ({
@@ -97,10 +107,12 @@ export const taskRepository = {
         }
       }
 
-      return tx.task.findUnique({
+      const updated = await tx.task.findUnique({
         where: { id: taskId },
         include: { assignees: { include: { user: true } } },
       });
+
+      return formatTask(updated);
     });
   },
 
@@ -111,9 +123,10 @@ export const taskRepository = {
   },
 
   findById: async (taskId: string) => {
-    return prisma.task.findUnique({
+    const task = await prisma.task.findUnique({
       where: { id: taskId },
       include: { assignees: { include: { user: true } } },
     });
+    return formatTask(task);
   },
 };

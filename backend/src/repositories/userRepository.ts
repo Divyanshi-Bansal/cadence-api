@@ -1,84 +1,87 @@
 import { prisma } from "../lib/prisma";
+import { encrypt, hashForLookup } from "../lib/crypto";
+import { formatUser, CleanUser } from "../lib/userFormat";
 
 export interface CreateUserInput {
-  clerkId: string;
   email: string;
   name?: string | null;
+  passwordHash?: string | null;
+  authProvider?: "CREDENTIALS" | "GOOGLE" | "GITHUB";
+  providerAccountId?: string | null;
+  isEmailVerified?: boolean;
 }
 
 export interface UpdateUserInput {
   name?: string | null;
 }
 
-const USER_PUBLIC_SELECT = {
-  id: true,
-  clerkId: true,
-  email: true,
-  name: true,
-  createdAt: true,
-  updatedAt: true,
-} as const;
-
 export const userRepository = {
-  findByClerkId: async (clerkId: string) => {
-    return prisma.user.findUnique({
-      where: { clerkId },
-      select: USER_PUBLIC_SELECT,
-    });
-  },
-
-  findByUserId: async (userId: string) => {
-    return prisma.user.findUnique({
+  findByUserId: async (userId: string): Promise<CleanUser | null> => {
+    const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: USER_PUBLIC_SELECT,
     });
+    return user ? formatUser(user) : null;
   },
 
-  findByEmail: async (email: string) => {
+  findByEmailHash: async (emailHash: string) => {
     return prisma.user.findUnique({
-      where: { email },
-      select: USER_PUBLIC_SELECT,
+      where: { emailHash },
     });
   },
 
-  upsert: async ({ clerkId, email, name }: CreateUserInput) => {
-    const existingByClerk = await prisma.user.findUnique({
-      where: { clerkId },
+  findByEmail: async (email: string): Promise<CleanUser | null> => {
+    const emailHash = hashForLookup(email);
+    const user = await prisma.user.findUnique({
+      where: { emailHash },
     });
-    if (existingByClerk) {
-      return prisma.user.update({
-        where: { clerkId },
-        data: { email, name: name ?? null },
-        select: USER_PUBLIC_SELECT,
-      });
-    }
+    return user ? formatUser(user) : null;
+  },
 
-    const existingByEmail = await prisma.user.findUnique({
-      where: { email },
-    });
-    if (existingByEmail) {
-      return prisma.user.update({
-        where: { email },
-        data: { clerkId, name: name ?? null },
-        select: USER_PUBLIC_SELECT,
-      });
-    }
-
-    return prisma.user.create({
-      data: { clerkId, email, name: name ?? null },
-      select: USER_PUBLIC_SELECT,
+  findByProvider: async (authProvider: "CREDENTIALS" | "GOOGLE" | "GITHUB", providerAccountId: string) => {
+    return prisma.user.findUnique({
+      where: {
+        authProvider_providerAccountId: {
+          authProvider,
+          providerAccountId,
+        },
+      },
     });
   },
 
-  update: async (userId: string, data: UpdateUserInput) => {
-    return prisma.user.update({
+  create: async (data: CreateUserInput): Promise<CleanUser> => {
+    const emailHash = hashForLookup(data.email);
+    const emailEncrypted = encrypt(data.email);
+    const nameEncrypted = data.name ? encrypt(data.name) : null;
+
+    const user = await prisma.user.create({
+      data: {
+        emailHash,
+        emailEncrypted,
+        nameEncrypted,
+        passwordHash: data.passwordHash || null,
+        authProvider: data.authProvider || "CREDENTIALS",
+        providerAccountId: data.providerAccountId || null,
+        isEmailVerified: data.isEmailVerified ?? false,
+      },
+    });
+
+    return formatUser(user);
+  },
+
+  update: async (userId: string, data: UpdateUserInput): Promise<CleanUser> => {
+    const nameEncrypted = data.name ? encrypt(data.name) : data.name === null ? null : undefined;
+
+    const user = await prisma.user.update({
       where: { id: userId },
-      data,
-      select: USER_PUBLIC_SELECT,
+      data: {
+        ...(nameEncrypted !== undefined && { nameEncrypted }),
+      },
     });
+
+    return formatUser(user);
   },
 
-  deleteByClerkId: async (clerkId: string) => {
-    return prisma.user.deleteMany({ where: { clerkId } });
+  delete: async (userId: string) => {
+    return prisma.user.delete({ where: { id: userId } });
   },
 };
