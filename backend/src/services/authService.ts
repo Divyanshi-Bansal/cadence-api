@@ -6,6 +6,7 @@ import { prisma } from "../lib/prisma";
 import { encrypt, hashForLookup, hashToken } from "../lib/crypto";
 import { formatUser, CleanUser } from "../lib/userFormat";
 import { userRepository } from "../repositories/userRepository";
+import { sendMagicLinkEmail } from "../utils/emailService";
 
 export class AppError extends Error {
   constructor(
@@ -67,15 +68,108 @@ export const authService = {
     return { accessToken, refreshToken };
   },
 
+  sendMagicLink: async (
+    email: string,
+    name?: string,
+  ): Promise<{ message: string; magicLink: string }> => {
+    const emailHash = hashForLookup(email);
+    let user = await userRepository.findByEmailHash(emailHash);
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          emailHash,
+          emailEncrypted: encrypt(email),
+          nameEncrypted: name ? encrypt(name) : null,
+          passwordHash: null,
+          authProvider: "CREDENTIALS",
+          isEmailVerified: false,
+        },
+      });
+    }
+
+    const rawToken = crypto.randomBytes(32).toString("hex");
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes TTL
+
+    await prisma.magicLinkToken.create({
+      data: {
+        userId: user.id,
+        tokenHash,
+        expiresAt,
+      },
+    });
+
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+    const magicLink = `${frontendUrl}/auth/verify-magic-link?token=${rawToken}`;
+
+    await sendMagicLinkEmail(email, magicLink);
+
+    return {
+      message: "Magic login link has been sent to your email address.",
+      magicLink,
+    };
+  },
+
+  verifyMagicLink: async (rawToken: string): Promise<AuthResult> => {
+    if (!rawToken || typeof rawToken !== "string") {
+      throw new AppError("Invalid or missing magic link token", 400);
+    }
+
+    const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+    const tokenRecord = await prisma.magicLinkToken.findUnique({
+      where: { tokenHash },
+      include: { user: true },
+    });
+
+    if (
+      !tokenRecord ||
+      tokenRecord.usedAt !== null ||
+      tokenRecord.expiresAt < new Date()
+    ) {
+      throw new AppError(
+        "Magic link is invalid, expired, or has already been used.",
+        400,
+      );
+    }
+
+    // Single-use enforcement: mark as used immediately
+    await prisma.magicLinkToken.update({
+      where: { id: tokenRecord.id },
+      data: { usedAt: new Date() },
+    });
+
+    // Mark email as verified
+    const updatedUser = await prisma.user.update({
+      where: { id: tokenRecord.userId },
+      data: { isEmailVerified: true },
+    });
+
+    const cleanUser = formatUser(updatedUser);
+    const { accessToken, refreshToken } = await authService.generateTokenPair(
+      updatedUser.id,
+    );
+
+    return { user: cleanUser, accessToken, refreshToken };
+  },
+
   signup: async (
     email: string,
     password: string,
-    name?: string,
-  ): Promise<AuthResult> => {
+    name: string,
+  ): Promise<{ message: string; user: CleanUser; magicLink: string }> => {
     const emailHash = hashForLookup(email);
     const existing = await userRepository.findByEmailHash(emailHash);
+
     if (existing) {
-      throw new AppError("An account with this email already exists.", 409);
+      // Send magic link to existing account email seamlessly
+      const magicRes = await authService.sendMagicLink(email, name);
+      return {
+        message:
+          "Account already exists! We have sent a magic link to your email to log you in.",
+        user: formatUser(existing),
+        magicLink: magicRes.magicLink,
+      };
     }
 
     const passwordHash = await argon2.hash(password, {
@@ -85,15 +179,20 @@ export const authService = {
     const user = await userRepository.create({
       email,
       passwordHash,
-      name: name || null,
+      name,
       authProvider: "CREDENTIALS",
       isEmailVerified: false,
     });
 
-    const { accessToken, refreshToken } =
-      await authService.generateTokenPair(user.id);
+    // Generate and send Magic Link immediately after signup
+    const magicRes = await authService.sendMagicLink(email, name);
 
-    return { user, accessToken, refreshToken };
+    return {
+      message:
+        "Account created successfully! We have sent a magic link to your email to log you in.",
+      user,
+      magicLink: magicRes.magicLink,
+    };
   },
 
   login: async (email: string, password: string): Promise<AuthResult> => {
@@ -116,7 +215,15 @@ export const authService = {
     return { user: cleanUser, accessToken, refreshToken };
   },
 
-  refresh: async (refreshToken: string): Promise<TokenPair> => {
+  getMe: async (userId: string): Promise<CleanUser> => {
+    const user = await userRepository.findByUserId(userId);
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+    return user;
+  },
+
+  refresh: async (refreshToken: string): Promise<AuthResult> => {
     const tokenHashValue = hashToken(refreshToken);
     const storedToken = await prisma.refreshToken.findUnique({
       where: { tokenHash: tokenHashValue },
@@ -136,8 +243,16 @@ export const authService = {
       data: { revokedAt: new Date() },
     });
 
+    const user = await userRepository.findByUserId(storedToken.userId);
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
     // Issue new token pair
-    return authService.generateTokenPair(storedToken.userId);
+    const { accessToken, refreshToken: newRefreshToken } =
+      await authService.generateTokenPair(storedToken.userId);
+
+    return { user, accessToken, refreshToken: newRefreshToken };
   },
 
   logout: async (refreshToken: string): Promise<void> => {
@@ -174,7 +289,6 @@ export const authService = {
       sub = payload.sub;
     } catch (err: any) {
       if (err instanceof AppError) throw err;
-      // Fallback for mock/testing environment if google client is not configured
       if (idToken.startsWith("mock_g_")) {
         sub = idToken;
         email = `google_user_${sub.slice(-6)}@example.com`;
@@ -240,7 +354,6 @@ export const authService = {
       throw new AppError(`GitHub OAuth exchange failed: ${err.message}`, 400);
     }
 
-    // Fetch user profile from GitHub
     const userRes = await fetch("https://api.github.com/user", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
@@ -251,7 +364,6 @@ export const authService = {
 
     let email = ghUser.email;
     if (!email) {
-      // Fetch primary email if null in profile
       const emailRes = await fetch("https://api.github.com/user/emails", {
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -284,7 +396,6 @@ export const authService = {
     const cleanUser = formatUser(user);
     const tokenPair = await authService.generateTokenPair(user.id);
 
-    // Create a short-lived ONE-TIME CODE for frontend exchange
     const oneTimeCode = crypto.randomBytes(32).toString("hex");
     otcStore.set(oneTimeCode, {
       userId: user.id,
@@ -307,7 +418,7 @@ export const authService = {
       throw new AppError("Invalid or expired authorization code.", 400);
     }
 
-    otcStore.delete(oneTimeCode); // Single-use!
+    otcStore.delete(oneTimeCode);
 
     const user = await userRepository.findByUserId(session.userId);
     if (!user) {

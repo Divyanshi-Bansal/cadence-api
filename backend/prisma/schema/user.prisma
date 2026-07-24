@@ -17,6 +17,7 @@ model User {
   comments        Comment[]
   sentInvitations Invitation[]
   refreshTokens   RefreshToken[]
+  magicLinkTokens MagicLinkToken[]
 
   @@unique([authProvider, providerAccountId])
 }
@@ -27,6 +28,19 @@ model RefreshToken {
   tokenHash String   @unique
   expiresAt DateTime
   revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MagicLinkToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
   createdAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
