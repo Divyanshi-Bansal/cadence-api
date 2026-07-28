@@ -1,13 +1,10 @@
-import { verifyToken } from "@clerk/backend";
 import { Request, Response, NextFunction } from "express";
-import { userRepository } from "../repositories/userRepository";
+import jwt from "jsonwebtoken";
 
 declare global {
   namespace Express {
     interface Request {
       userId: string;
-      clerkId: string;
-      userEmail: string;
     }
   }
 }
@@ -23,34 +20,40 @@ export async function requireAuth(
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       res
         .status(401)
-        .json({ error: "Missing or malformed Authorization header." });
+        .json({ error: "unauthorized", message: "Missing or malformed Authorization header." });
       return;
     }
 
-    const token = authHeader.slice(7); // strip "Bearer "
+    const token = authHeader.slice(7).trim();
+    const accessSecret = process.env.JWT_ACCESS_SECRET;
 
-    // verifyToken is a standalone export in @clerk/backend v3.
-    // It validates the JWT signature + expiry via Clerk's JWKS endpoint.
-    const payload = await verifyToken(token, {
-      secretKey: process.env.CLERK_SECRET_KEY,
-    });
+    if (!accessSecret) {
+      console.error("[requireAuth] JWT_ACCESS_SECRET environment variable is missing.");
+      res.status(500).json({ error: "Internal server configuration error." });
+      return;
+    }
 
-    // `sub` is the Clerk user id (e.g. "user_2abc…")
-    const clerkId = payload.sub;
-    const userEmail = typeof payload.email === "string" ? payload.email : "";
+    const payload = jwt.verify(token, accessSecret) as jwt.JwtPayload;
 
-    const user = await userRepository.upsert({
-      clerkId,
-      email: userEmail,
-      name: null,
-    });
-    req.userId = user.id;
-    req.clerkId = clerkId;
-    req.userEmail = user.email;
+    if (!payload || !payload.sub || typeof payload.sub !== "string") {
+      res.status(401).json({ error: "unauthorized", message: "Invalid token payload." });
+      return;
+    }
 
+    req.userId = payload.sub;
     next();
-  } catch (err) {
-    console.error("[requireAuth] Token verification failed:", err);
-    res.status(401).json({ error: "Invalid or expired token." });
+  } catch (err: any) {
+    if (err?.name === "TokenExpiredError") {
+      res.status(401).json({
+        error: "token_expired",
+        message: "Access token has expired.",
+      });
+      return;
+    }
+
+    res.status(401).json({
+      error: "unauthorized",
+      message: "Invalid access token.",
+    });
   }
 }

@@ -2,7 +2,6 @@ import { Request, Response } from "express";
 import { ZodError } from "zod";
 import { userService, AppError } from "../services/userService";
 import {
-  signUpSchema,
   forgotPasswordSchema,
   updateUserSchema,
 } from "../validations/userValidation";
@@ -33,29 +32,10 @@ export async function getUserProfile(
   res: Response,
 ): Promise<void> {
   try {
-    const user = await userService.getProfile(req.userId, req.userEmail);
+    const user = await userService.getProfile(req.userId);
     res.json({ user });
   } catch (err) {
     handleError(res, err, "getUserProfile");
-  }
-}
-
-export async function signUp(req: Request, res: Response): Promise<void> {
-  try {
-    const { name } = signUpSchema.parse(req.body);
-    const user = await userService.signUp(req.userId, req.userEmail, name);
-    res.status(201).json({ user });
-  } catch (err) {
-    handleError(res, err, "signUp");
-  }
-}
-
-export async function signIn(req: Request, res: Response): Promise<void> {
-  try {
-    const user = await userService.signIn(req.userId, req.userEmail);
-    res.json({ user });
-  } catch (err) {
-    handleError(res, err, "signIn");
   }
 }
 

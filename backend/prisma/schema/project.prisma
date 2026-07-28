@@ -21,8 +21,8 @@ model ProjectMember {
   userId    String
   joinedAt  DateTime @default(now())
   role      ProjectRole @default(MEMBER)
-  user      User     @relation(fields:[userId], references:[id])
-  project   Project  @relation(fields: [projectId], references: [id])
+  user      User     @relation(fields:[userId], references:[id], onDelete: SetNull)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@unique([projectId, userId])
 }

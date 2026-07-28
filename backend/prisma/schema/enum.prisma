@@ -26,3 +26,9 @@ enum InvitationStatus {
   DECLINED
   EXPIRED
 }
+
+enum AuthProvider {
+  CREDENTIALS
+  GOOGLE
+  GITHUB
+}

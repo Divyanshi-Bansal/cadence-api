@@ -1,4 +1,6 @@
 import { prisma } from '../lib/prisma';
+import { hashForLookup } from '../lib/crypto';
+import { formatUser } from '../lib/userFormat';
 
 const DEFAULT_STAGES = [
   { name: 'To Do', order: 0, isDoneStage: false },
@@ -45,6 +47,14 @@ export const projectRepository = {
         });
         if (!project) return null;
 
+        const formattedTasks = project.tasks.map((task) => ({
+            ...task,
+            assignees: task.assignees.map((a) => ({
+                ...a,
+                user: a.user ? formatUser(a.user) : null,
+            })),
+        }));
+
         return {
             id: project.id,
             name: project.name,
@@ -56,7 +66,7 @@ export const projectRepository = {
             updatedAt: project.updatedAt,
             stages: project.stages,
             issueTypes: project.issueTypes,
-            tasks: project.tasks,
+            tasks: formattedTasks,
         };
     },
 
@@ -88,24 +98,28 @@ export const projectRepository = {
         });
     },
 
-    // getMembers: handle possible null user (deleted account)
     getMembers: async (projectId: string) => {
         const members = await prisma.projectMember.findMany({
             where: { projectId },
-            include: { user: { select: { id: true, name: true, email: true } } },
+            include: { user: true },
         });
 
-        return members.map((m) => ({
-            userId: m.userId,
-            name: m.user?.name ?? 'Deleted User',
-            email: m.user?.email ?? null,
-            role: m.role,
-            joinedAt: m.joinedAt,
-        }));
+        return members.map((m) => {
+            const formatted = m.user ? formatUser(m.user) : null;
+            return {
+                userId: m.userId,
+                name: formatted?.name ?? 'Deleted User',
+                email: formatted?.email ?? null,
+                role: m.role,
+                joinedAt: m.joinedAt,
+            };
+        });
     },
 
     findUserByEmail: async (email: string) => {
-        return prisma.user.findUnique({ where: { email } });
+        const emailHash = hashForLookup(email);
+        const user = await prisma.user.findUnique({ where: { emailHash } });
+        return user ? formatUser(user) : null;
     },
 
     addOrUpdateMember: async (projectId: string, userId: string, role: 'ADMIN' | 'MEMBER') => {
