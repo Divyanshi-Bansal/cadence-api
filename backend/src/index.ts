@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import authRoutes from "./routes/authRoutes";
 import userRoutes from "./routes/userRoutes";
 import projectRoutes from "./routes/projectRoutes";
+import { invitationRoutes } from "./routes/invitationRoutes";
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/projects", projectRoutes);
+app.use("/api/invitations", invitationRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on PORT ${PORT}`);
