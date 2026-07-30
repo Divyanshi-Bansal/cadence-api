@@ -18,6 +18,7 @@ model User {
   sentInvitations Invitation[]
   refreshTokens   RefreshToken[]
   magicLinkTokens MagicLinkToken[]
+  subscription    Subscription?
 
   @@unique([authProvider, providerAccountId])
 }

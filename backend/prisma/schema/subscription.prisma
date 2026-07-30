@@ -1,0 +1,11 @@
+model Subscription {
+  id                     String    @id @default(cuid())
+  userId                 String    @unique
+  stripeCustomerId       String?   @unique
+  stripeSubscriptionId   String?   @unique
+  stripePriceId          String?
+  status                 String?   // active, past_due, canceled
+  currentPeriodEnd       DateTime?
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}

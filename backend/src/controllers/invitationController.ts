@@ -4,6 +4,7 @@ import { prisma } from "../lib/prisma";
 import { sendInvitationEmail } from "../lib/email";
 import crypto from "crypto";
 import { hashForLookup } from "../lib/crypto";
+import { checkCanInviteMember } from "../services/subscriptionService";
 
 const createInvitationSchema = z.object({
   projectId: z.string().cuid(),
@@ -23,6 +24,13 @@ export const invitationController = {
           projectId_userId: { projectId, userId: inviterId },
         },
       });
+
+      // Enforce Plan Limits
+      const canInvite = await checkCanInviteMember(projectId, inviterId);
+      if (!canInvite) {
+        res.status(403).json({ error: "LIMIT_REACHED", message: "Project member limit reached. Please upgrade the plan to invite more members." });
+        return;
+      }
 
       if (!projectMember || (projectMember.role !== "OWNER" && projectMember.role !== "ADMIN")) {
         res.status(403).json({ error: "Insufficient permissions to invite members." });
