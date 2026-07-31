@@ -13,6 +13,9 @@ export const taskService = {
       description?: any;
       priority?: any;
       assigneeIds?: string[];
+      parentTaskId?: string | null;
+      dueDate?: Date | null;
+      estimatedMinutes?: number | null;
     }
   ) => {
     // Validate target stage
@@ -36,6 +39,7 @@ export const taskService = {
       title?: string;
       description?: any;
       priority?: any;
+      parentTaskId?: string | null;
       dueDate?: Date | null;
       estimatedMinutes?: number | null;
       assigneeIds?: string[];

@@ -13,6 +13,13 @@ export const createTaskSchema = z.object({
   description: z.any().optional(),
   priority: PriorityEnum.optional(),
   assigneeIds: z.array(z.string()).optional(),
+  parentTaskId: z.string().nullable().optional(),
+  dueDate: z
+    .preprocess((arg) => {
+      if (typeof arg === 'string' && arg !== '') return new Date(arg);
+      return arg;
+    }, z.date().nullable().optional()),
+  estimatedMinutes: z.number().int().nonnegative().nullable().optional(),
 });
 
 export const updateTaskSchema = z.object({
@@ -26,6 +33,7 @@ export const updateTaskSchema = z.object({
   issueTypeId: z.string().optional(),
   description: z.any().optional(),
   priority: PriorityEnum.optional(),
+  parentTaskId: z.string().nullable().optional(),
   dueDate: z
     .preprocess((arg) => {
       if (typeof arg === 'string' && arg !== '') return new Date(arg);
