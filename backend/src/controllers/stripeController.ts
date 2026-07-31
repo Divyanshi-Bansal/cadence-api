@@ -200,3 +200,104 @@ export const getBillingHistory = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const previewProration = async (req: Request, res: Response) => {
+  try {
+    const { priceId } = req.query;
+    const userId = req.userId;
+
+    if (!userId || !priceId) {
+      return res.status(400).json({ error: "Missing required parameters" });
+    }
+
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (!subscription || !subscription.stripeSubscriptionId || !subscription.stripeCustomerId) {
+      const price = await stripe.prices.retrieve(priceId as string);
+      return res.json({ amountDue: price.unit_amount || 0 });
+    }
+
+    const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+    
+    const upcomingInvoice = await stripe.invoices.createPreview({
+      customer: subscription.stripeCustomerId,
+      subscription: subscription.stripeSubscriptionId,
+      subscription_details: {
+        items: [
+          {
+            id: stripeSub.items.data[0].id,
+            price: priceId as string,
+          },
+        ],
+        proration_behavior: 'always_invoice',
+      },
+    });
+
+    res.json({ amountDue: upcomingInvoice.amount_due });
+  } catch (error: any) {
+    console.error("Preview Proration Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateSubscription = async (req: Request, res: Response) => {
+  try {
+    const { priceId } = req.body;
+    const userId = req.userId;
+
+    if (!userId || !priceId) {
+      return res.status(400).json({ error: "Missing required parameters" });
+    }
+
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (!subscription || !subscription.stripeSubscriptionId) {
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        mode: "subscription",
+        customer: subscription?.stripeCustomerId ? subscription.stripeCustomerId : undefined,
+        client_reference_id: userId,
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        success_url: `${process.env.FRONTEND_URL}/projects?checkout_success=true`,
+        cancel_url: `${process.env.FRONTEND_URL}/projects/billing?checkout_canceled=true`,
+      });
+      return res.json({ url: session.url });
+    }
+
+    const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+    
+    const updatedSubscription = await stripe.subscriptions.update(
+      subscription.stripeSubscriptionId,
+      {
+        items: [
+          {
+            id: stripeSub.items.data[0].id,
+            price: priceId,
+          },
+        ],
+        proration_behavior: 'always_invoice',
+        expand: ['latest_invoice'],
+      }
+    );
+
+    const latestInvoice = updatedSubscription.latest_invoice as Stripe.Invoice;
+
+    if (latestInvoice && latestInvoice.status === 'open' && latestInvoice.hosted_invoice_url) {
+      return res.json({ url: latestInvoice.hosted_invoice_url });
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error("Update Subscription Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
