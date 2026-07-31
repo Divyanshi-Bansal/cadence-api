@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import Stripe from "stripe";
 import { PrismaClient } from "@prisma/client";
-
+import { getUserPlan } from "../services/subscriptionService";
 const prisma = new PrismaClient();
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: "2024-04-10" as any, // Use latest stable
@@ -12,8 +12,7 @@ const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 export const createCheckoutSession = async (req: Request, res: Response) => {
   try {
     const { priceId } = req.body;
-    const userId = req.user?.id;
-    const email = req.user?.emailHash; // We have emailHash, or we might need to decrypt email, but let's just pass userId in client_reference_id
+    const userId = req.userId;
 
     if (!userId || !priceId) {
       return res.status(400).json({ error: "Missing required parameters" });
@@ -50,7 +49,7 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
 
 export const getPortalSession = async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -104,7 +103,8 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
         if (userId) {
           // Retrieve the subscription to get the price ID and end date
-          const sub = await stripe.subscriptions.retrieve(subscriptionId);
+          const subResponse = await stripe.subscriptions.retrieve(subscriptionId);
+          const sub = subResponse as Stripe.Subscription;
           const priceId = sub.items.data[0].price.id;
 
           await prisma.subscription.upsert({
@@ -115,14 +115,14 @@ export const handleWebhook = async (req: Request, res: Response) => {
               stripeSubscriptionId: subscriptionId,
               stripePriceId: priceId,
               status: sub.status,
-              currentPeriodEnd: new Date(sub.current_period_end * 1000),
+              currentPeriodEnd: new Date((sub as any).current_period_end * 1000),
             },
             update: {
               stripeCustomerId: customerId,
               stripeSubscriptionId: subscriptionId,
               stripePriceId: priceId,
               status: sub.status,
-              currentPeriodEnd: new Date(sub.current_period_end * 1000),
+              currentPeriodEnd: new Date((sub as any).current_period_end * 1000),
             },
           });
         }
@@ -131,18 +131,18 @@ export const handleWebhook = async (req: Request, res: Response) => {
       
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subEvent = event.data.object as Stripe.Subscription;
         
-        const customerId = subscription.customer as string;
-        const priceId = subscription.items.data[0].price.id;
+        const customerId = subEvent.customer as string;
+        const priceId = subEvent.items.data[0].price.id;
 
         await prisma.subscription.updateMany({
           where: { stripeCustomerId: customerId },
           data: {
-            stripeSubscriptionId: subscription.id,
+            stripeSubscriptionId: subEvent.id,
             stripePriceId: priceId,
-            status: subscription.status,
-            currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+            status: subEvent.status,
+            currentPeriodEnd: new Date((subEvent as any).current_period_end * 1000),
           },
         });
         break;
@@ -157,4 +157,46 @@ export const handleWebhook = async (req: Request, res: Response) => {
   }
 
   res.json({ received: true });
+};
+
+
+export const getSubscriptionPlan = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+    const plan = await getUserPlan(userId);
+    res.json({ plan });
+  } catch (error: any) {
+    console.error("Get Subscription Plan Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const getBillingHistory = async (req: Request, res: Response) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId },
+    });
+
+    if (!subscription || !subscription.stripeCustomerId) {
+      return res.json({ invoices: [] });
+    }
+
+    const invoices = await stripe.invoices.list({
+      customer: subscription.stripeCustomerId,
+      limit: 100,
+    });
+
+    res.json({ invoices: invoices.data });
+  } catch (error: any) {
+    console.error("Get Billing History Error:", error);
+    res.status(500).json({ error: error.message });
+  }
 };

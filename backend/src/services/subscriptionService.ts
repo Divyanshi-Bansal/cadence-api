@@ -22,16 +22,16 @@ export const getUserPlan = async (userId: string) => {
   const isActive = subscription?.status === "active" || subscription?.status === "trialing";
   
   if (!subscription || !isActive) {
-    return { name: "FREE", limits: PLAN_LIMITS.FREE };
+    return { name: "FREE", limits: PLAN_LIMITS.FREE, currentPeriodEnd: null };
   }
 
   if (subscription.stripePriceId === STRIPE_PRICE_ID_ENTERPRISE) {
-    return { name: "ENTERPRISE", limits: PLAN_LIMITS.ENTERPRISE };
+    return { name: "ENTERPRISE", limits: PLAN_LIMITS.ENTERPRISE, currentPeriodEnd: subscription.currentPeriodEnd };
   } else if (subscription.stripePriceId === STRIPE_PRICE_ID_PRO) {
-    return { name: "PRO", limits: PLAN_LIMITS.PRO };
+    return { name: "PRO", limits: PLAN_LIMITS.PRO, currentPeriodEnd: subscription.currentPeriodEnd };
   }
 
-  return { name: "FREE", limits: PLAN_LIMITS.FREE };
+  return { name: "FREE", limits: PLAN_LIMITS.FREE, currentPeriodEnd: null };
 };
 
 export const checkCanCreateProject = async (userId: string): Promise<boolean> => {

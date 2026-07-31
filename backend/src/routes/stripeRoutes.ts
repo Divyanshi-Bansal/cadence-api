@@ -1,6 +1,6 @@
-import { Router, raw, express } from "express";
-import { requireAuth } from "../middlewares/authMiddleware";
-import { createCheckoutSession, handleWebhook, getPortalSession } from "../controllers/stripeController";
+import express, { Router, raw } from "express";
+import { requireAuth } from "../middlewares/requireAuth";
+import { createCheckoutSession, handleWebhook, getPortalSession, getSubscriptionPlan, getBillingHistory } from "../controllers/stripeController";
 
 const router = Router();
 import bodyParser from "body-parser";
@@ -14,5 +14,7 @@ const jsonParser = bodyParser.json();
 
 router.post("/checkout", jsonParser, requireAuth, createCheckoutSession);
 router.post("/portal", jsonParser, requireAuth, getPortalSession);
+router.get("/plan", jsonParser, requireAuth, getSubscriptionPlan);
+router.get("/history", jsonParser, requireAuth, getBillingHistory);
 
 export default router;
