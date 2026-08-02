@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
-import { hashForLookup } from '../lib/crypto';
+import { encryptDeterministic } from "../lib/crypto";
 import { formatUser } from '../lib/userFormat';
+import { userRepository } from './userRepository';
 
 const DEFAULT_STAGES = [
   { name: 'To Do', order: 0, isDoneStage: false },
@@ -130,8 +131,7 @@ export const projectRepository = {
     },
 
     findUserByEmail: async (email: string) => {
-        const emailHash = hashForLookup(email);
-        const user = await prisma.user.findUnique({ where: { emailHash } });
+        const user = await userRepository.findByEmail(email);
         return user ? formatUser(user) : null;
     },
 

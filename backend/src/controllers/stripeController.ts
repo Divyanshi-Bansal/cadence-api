@@ -285,6 +285,7 @@ export const updateSubscription = async (req: Request, res: Response) => {
           },
         ],
         proration_behavior: 'always_invoice',
+        payment_behavior: 'default_incomplete',
         expand: ['latest_invoice'],
       }
     );

@@ -1,5 +1,5 @@
 import { prisma } from "../lib/prisma";
-import { encrypt, hashForLookup } from "../lib/crypto";
+import { encrypt, encryptDeterministic } from "../lib/crypto";
 import { formatUser, CleanUser } from "../lib/userFormat";
 
 export interface CreateUserInput {
@@ -23,16 +23,16 @@ export const userRepository = {
     return user ? formatUser(user) : null;
   },
 
-  findByEmailHash: async (emailHash: string) => {
+  findByEmailEncrypted: async (emailEncrypted: string) => {
     return prisma.user.findUnique({
-      where: { emailHash },
+      where: { emailEncrypted },
     });
   },
 
   findByEmail: async (email: string): Promise<CleanUser | null> => {
-    const emailHash = hashForLookup(email);
+    const emailEncrypted = encryptDeterministic(email);
     const user = await prisma.user.findUnique({
-      where: { emailHash },
+      where: { emailEncrypted },
     });
     return user ? formatUser(user) : null;
   },
@@ -49,13 +49,11 @@ export const userRepository = {
   },
 
   create: async (data: CreateUserInput): Promise<CleanUser> => {
-    const emailHash = hashForLookup(data.email);
-    const emailEncrypted = encrypt(data.email);
+    const emailEncrypted = encryptDeterministic(data.email);
     const nameEncrypted = data.name ? encrypt(data.name) : null;
 
     const user = await prisma.user.create({
       data: {
-        emailHash,
         emailEncrypted,
         nameEncrypted,
         passwordHash: data.passwordHash || null,
