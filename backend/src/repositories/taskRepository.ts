@@ -2,7 +2,7 @@ import { prisma } from '../lib/prisma';
 import { Priority } from '@prisma/client';
 import { formatUser } from '../lib/userFormat';
 
-function formatTask(task: any) {
+function formatTask(task: any): any {
   if (!task) return null;
   return {
     ...task,
@@ -10,6 +10,7 @@ function formatTask(task: any) {
       ...a,
       user: a.user ? formatUser(a.user) : null,
     })),
+    subtasks: task.subtasks?.map((st: any) => formatTask(st)) || [],
   };
 }
 
@@ -22,6 +23,9 @@ export const taskRepository = {
     description?: any;
     priority?: Priority;
     reporterId: string;
+    parentTaskId?: string | null;
+    dueDate?: Date | null;
+    estimatedMinutes?: number | null;
     assigneeIds?: string[];
   }) => {
     let issueTypeId = data.issueTypeId;
@@ -50,6 +54,9 @@ export const taskRepository = {
           description: data.description || null,
           priority: data.priority || 'MEDIUM',
           reporterId: data.reporterId,
+          parentTaskId: data.parentTaskId || null,
+          dueDate: data.dueDate || null,
+          estimatedMinutes: data.estimatedMinutes || null,
         },
       });
 
@@ -64,7 +71,11 @@ export const taskRepository = {
 
       const created = await tx.task.findUnique({
         where: { id: task.id },
-        include: { assignees: { include: { user: true } } },
+        include: {
+          assignees: { include: { user: true } },
+          subtasks: { include: { assignees: { include: { user: true } } } },
+          parent: true,
+        },
       });
 
       return formatTask(created);
@@ -79,6 +90,7 @@ export const taskRepository = {
       title?: string;
       description?: any;
       priority?: Priority;
+      parentTaskId?: string | null;
       dueDate?: Date | null;
       estimatedMinutes?: number | null;
       assigneeIds?: string[];
@@ -91,6 +103,14 @@ export const taskRepository = {
         where: { id: taskId },
         data: scalarFields,
       });
+
+      // If parent stage changes, cascade stage update to all its subtasks
+      if (scalarFields.stageId) {
+        await tx.task.updateMany({
+          where: { parentTaskId: taskId },
+          data: { stageId: scalarFields.stageId },
+        });
+      }
 
       if (assigneeIds !== undefined) {
         await tx.taskAssignee.deleteMany({
@@ -109,7 +129,11 @@ export const taskRepository = {
 
       const updated = await tx.task.findUnique({
         where: { id: taskId },
-        include: { assignees: { include: { user: true } } },
+        include: {
+          assignees: { include: { user: true } },
+          subtasks: { include: { assignees: { include: { user: true } } } },
+          parent: true,
+        },
       });
 
       return formatTask(updated);
@@ -117,15 +141,40 @@ export const taskRepository = {
   },
 
   delete: async (taskId: string) => {
-    return prisma.task.delete({
-      where: { id: taskId },
+    return prisma.$transaction(async (tx) => {
+      const getAllChildIds = async (parentIds: string[]): Promise<string[]> => {
+        if (parentIds.length === 0) return [];
+        const children = await tx.task.findMany({
+          where: { parentTaskId: { in: parentIds } },
+          select: { id: true },
+        });
+        const childIds = children.map((c) => c.id);
+        if (childIds.length === 0) return [];
+        const deeperChildIds = await getAllChildIds(childIds);
+        return [...childIds, ...deeperChildIds];
+      };
+
+      const allChildIds = await getAllChildIds([taskId]);
+      if (allChildIds.length > 0) {
+        await tx.task.deleteMany({
+          where: { id: { in: allChildIds } },
+        });
+      }
+
+      return tx.task.delete({
+        where: { id: taskId },
+      });
     });
   },
 
   findById: async (taskId: string) => {
     const task = await prisma.task.findUnique({
       where: { id: taskId },
-      include: { assignees: { include: { user: true } } },
+      include: {
+        assignees: { include: { user: true } },
+        subtasks: { include: { assignees: { include: { user: true } } } },
+        parent: true,
+      },
     });
     return formatTask(task);
   },

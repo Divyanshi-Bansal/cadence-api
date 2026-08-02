@@ -42,7 +42,13 @@ export const projectRepository = {
             include: {
                 stages: { orderBy: { order: 'asc' } },
                 issueTypes: true,
-                tasks: { include: { assignees: { include: { user: true } } } },
+                tasks: {
+                    include: {
+                        assignees: { include: { user: true } },
+                        subtasks: { include: { assignees: { include: { user: true } } } },
+                        parent: true,
+                    },
+                },
             },
         });
         if (!project) return null;
@@ -53,6 +59,13 @@ export const projectRepository = {
                 ...a,
                 user: a.user ? formatUser(a.user) : null,
             })),
+            subtasks: task.subtasks?.map((st) => ({
+                ...st,
+                assignees: st.assignees?.map((a) => ({
+                    ...a,
+                    user: a.user ? formatUser(a.user) : null,
+                })),
+            })) || [],
         }));
 
         return {
