@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { projectService, AppError } from '../services/projectService';
+import { checkCanCreateProject } from '../services/subscriptionService';
 import {
   createProjectSchema,
   updateProjectSchema,
@@ -45,6 +46,14 @@ export async function getProjectById(req: Request, res: Response) {
 export async function createProject(req: Request, res: Response) {
   try {
     const data = createProjectSchema.parse(req.body);
+    
+    // Enforce Plan Limits
+    const canCreate = await checkCanCreateProject(req.userId);
+    if (!canCreate) {
+      res.status(403).json({ error: "LIMIT_REACHED", message: "You have reached your project limit. Please upgrade your plan." });
+      return;
+    }
+
     const project = await projectService.create(data, req.userId);
     res.status(201).json(project);
   } catch (err) {

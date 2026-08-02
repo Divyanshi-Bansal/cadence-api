@@ -3,7 +3,7 @@ import jwt from "jsonwebtoken";
 import argon2 from "argon2";
 import { OAuth2Client } from "google-auth-library";
 import { prisma } from "../lib/prisma";
-import { encrypt, hashForLookup, hashToken } from "../lib/crypto";
+import { encrypt, encryptDeterministic, hashToken } from "../lib/crypto";
 import { formatUser, CleanUser } from "../lib/userFormat";
 import { userRepository } from "../repositories/userRepository";
 import { sendMagicLinkEmail } from "../utils/emailService";
@@ -72,14 +72,12 @@ export const authService = {
     email: string,
     name?: string,
   ): Promise<{ message: string; magicLink: string }> => {
-    const emailHash = hashForLookup(email);
-    let user = await userRepository.findByEmailHash(emailHash);
+    let user = await userRepository.findByEmail(email);
 
     if (!user) {
       user = await prisma.user.create({
         data: {
-          emailHash,
-          emailEncrypted: encrypt(email),
+          emailEncrypted: encryptDeterministic(email),
           nameEncrypted: name ? encrypt(name) : null,
           passwordHash: null,
           authProvider: "CREDENTIALS",
@@ -158,8 +156,7 @@ export const authService = {
     password: string,
     name: string,
   ): Promise<{ message: string; user: CleanUser; magicLink: string }> => {
-    const emailHash = hashForLookup(email);
-    const existing = await userRepository.findByEmailHash(emailHash);
+    const existing = await userRepository.findByEmail(email);
 
     if (existing) {
       // Send magic link to existing account email seamlessly
@@ -196,8 +193,7 @@ export const authService = {
   },
 
   login: async (email: string, password: string): Promise<AuthResult> => {
-    const emailHash = hashForLookup(email);
-    const user = await userRepository.findByEmailHash(emailHash);
+    const user = await userRepository.findByEmail(email);
 
     if (!user || !user.passwordHash) {
       throw new AppError("Invalid email or password", 401);
@@ -298,14 +294,12 @@ export const authService = {
       }
     }
 
-    const emailHash = hashForLookup(email);
-    let user = await userRepository.findByEmailHash(emailHash);
+    let user = await userRepository.findByEmail(email);
 
     if (!user) {
       user = await prisma.user.create({
         data: {
-          emailHash,
-          emailEncrypted: encrypt(email),
+          emailEncrypted: encryptDeterministic(email),
           nameEncrypted: name ? encrypt(name) : null,
           passwordHash: null,
           authProvider: "GOOGLE",
@@ -376,14 +370,12 @@ export const authService = {
     }
 
     const sub = String(ghUser.id);
-    const emailHash = hashForLookup(email);
-    let user = await userRepository.findByEmailHash(emailHash);
+    let user = await userRepository.findByEmail(email);
 
     if (!user) {
       user = await prisma.user.create({
         data: {
-          emailHash,
-          emailEncrypted: encrypt(email),
+          emailEncrypted: encryptDeterministic(email),
           nameEncrypted: ghUser.name ? encrypt(ghUser.name) : null,
           passwordHash: null,
           authProvider: "GITHUB",

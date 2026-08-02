@@ -6,6 +6,7 @@ import authRoutes from "./routes/authRoutes";
 import userRoutes from "./routes/userRoutes";
 import projectRoutes from "./routes/projectRoutes";
 import { invitationRoutes } from "./routes/invitationRoutes";
+import stripeRoutes from "./routes/stripeRoutes";
 
 dotenv.config();
 
@@ -20,6 +21,10 @@ app.use(
 );
 
 app.use(cookieParser());
+
+// Webhook route needs raw body parsing, so it must be before express.json()
+app.use("/api/stripe", stripeRoutes);
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;

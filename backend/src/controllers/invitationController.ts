@@ -3,7 +3,9 @@ import { z, ZodError } from "zod";
 import { prisma } from "../lib/prisma";
 import { sendInvitationEmail } from "../lib/email";
 import crypto from "crypto";
-import { hashForLookup } from "../lib/crypto";
+import { encryptDeterministic } from "../lib/crypto";
+import { checkCanInviteMember } from "../services/subscriptionService";
+import { userRepository } from "../repositories/userRepository";
 
 const createInvitationSchema = z.object({
   projectId: z.string().cuid(),
@@ -24,6 +26,13 @@ export const invitationController = {
         },
       });
 
+      // Enforce Plan Limits
+      const canInvite = await checkCanInviteMember(projectId, inviterId);
+      if (!canInvite) {
+        res.status(403).json({ error: "LIMIT_REACHED", message: "Project member limit reached. Please upgrade the plan to invite more members." });
+        return;
+      }
+
       if (!projectMember || (projectMember.role !== "OWNER" && projectMember.role !== "ADMIN")) {
         res.status(403).json({ error: "Insufficient permissions to invite members." });
         return;
@@ -38,8 +47,7 @@ export const invitationController = {
       }
 
       // 2. Check if the invited email is already a member
-      const emailHash = hashForLookup(email);
-      const existingUser = await prisma.user.findUnique({ where: { emailHash } });
+      const existingUser = await userRepository.findByEmail(email);
 
       if (existingUser) {
         const existingMember = await prisma.projectMember.findUnique({
@@ -162,8 +170,8 @@ export const invitationController = {
         return;
       }
 
-      const invitationEmailHash = hashForLookup(invitation.email);
-      if (user.emailHash !== invitationEmailHash) {
+      const invitationEmailEncrypted = encryptDeterministic(invitation.email);
+      if (user.emailEncrypted !== invitationEmailEncrypted) {
         res.status(403).json({ error: "This invitation was sent to a different email address." });
         return;
       }
@@ -213,7 +221,7 @@ export const invitationController = {
           where: { email: plaintextEmail },
           include: {
             project: { select: { id: true, name: true } },
-            invitedBy: { select: { id: true, nameEncrypted: true, emailHash: true } },
+            invitedBy: { select: { id: true, nameEncrypted: true, emailEncrypted: true } },
           },
           orderBy: { createdAt: "desc" },
         }),
@@ -241,7 +249,7 @@ export const invitationController = {
           invitedBy: inv.invitedBy
             ? {
                 id: inv.invitedBy.id,
-                emailHash: inv.invitedBy.emailHash,
+                emailEncrypted: inv.invitedBy.emailEncrypted,
                 name: inviterName,
               }
             : null,
