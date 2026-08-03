@@ -3,7 +3,8 @@ import { z, ZodError } from "zod";
 import { prisma } from "../lib/prisma";
 import { sendInvitationEmail } from "../lib/email";
 import crypto from "crypto";
-import { encryptDeterministic } from "../lib/crypto";
+import { encryptDeterministic, decrypt } from "../lib/crypto";
+import { formatUser } from "../lib/userFormat";
 import { checkCanInviteMember } from "../services/subscriptionService";
 import { userRepository } from "../repositories/userRepository";
 
@@ -26,15 +27,15 @@ export const invitationController = {
         },
       });
 
+      if (!projectMember || (projectMember.role !== "OWNER" && projectMember.role !== "ADMIN")) {
+        res.status(403).json({ error: "Insufficient permissions to invite members." });
+        return;
+      }
+
       // Enforce Plan Limits
       const canInvite = await checkCanInviteMember(projectId, inviterId);
       if (!canInvite) {
         res.status(403).json({ error: "LIMIT_REACHED", message: "Project member limit reached. Please upgrade the plan to invite more members." });
-        return;
-      }
-
-      if (!projectMember || (projectMember.role !== "OWNER" && projectMember.role !== "ADMIN")) {
-        res.status(403).json({ error: "Insufficient permissions to invite members." });
         return;
       }
 
@@ -46,9 +47,8 @@ export const invitationController = {
         return;
       }
 
-      // 2. Check if the invited email is already a member
+      // 2. Check if the invited email belongs to an existing user already in the project
       const existingUser = await userRepository.findByEmail(email);
-
       if (existingUser) {
         const existingMember = await prisma.projectMember.findUnique({
           where: { projectId_userId: { projectId, userId: existingUser.id } },
@@ -59,7 +59,7 @@ export const invitationController = {
         }
       }
 
-      // 3. Check for existing pending invitation
+      // 3. Check for existing pending invitation for this email
       const existingInvitation = await prisma.invitation.findFirst({
         where: {
           projectId,
@@ -94,15 +94,16 @@ export const invitationController = {
       const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
       const inviteLink = `${frontendUrl}/invite/accept?token=${token}`;
 
-      // In real scenario, user's name is encrypted, but for the email, we don't have it unencrypted here directly unless we decrypt it or just use 'A team member'.
-      // Wait, we need to decrypt inviter's name or just pass a generic name if we can't.
-      // Let's use a generic name or "A colleague" if decrypting here is too much overhead.
-      const { decrypt } = require("../lib/crypto");
-      const inviterName = inviter.nameEncrypted ? decrypt(inviter.nameEncrypted) : "A team member";
+      let inviterName = "A team member";
+      if (inviter.nameEncrypted) {
+        try {
+          inviterName = decrypt(inviter.nameEncrypted);
+        } catch (e) {}
+      }
 
       await sendInvitationEmail(email, inviterName, project.name, inviteLink);
 
-      res.status(201).json({ message: "Invitation sent successfully.", invitationId: invitation.id });
+      res.status(201).json({ message: "Invitation sent successfully.", invitationId: invitation.id, invitation });
     } catch (error) {
       if (error instanceof ZodError) {
         res.status(400).json({ error: "Validation error", details: error.issues });
@@ -163,7 +164,7 @@ export const invitationController = {
         return;
       }
 
-      // Verify email matches
+      // Verify user exists and email matches
       const user = await prisma.user.findUnique({ where: { id: userId } });
       if (!user) {
         res.status(404).json({ error: "User not found." });
@@ -193,12 +194,121 @@ export const invitationController = {
 
       res.json({ message: "Invitation accepted successfully.", projectId: invitation.projectId });
     } catch (error: any) {
-      // Handle unique constraint if user clicked multiple times or is already a member
       if (error.code === 'P2002') {
         res.status(409).json({ error: "You are already a member of this project." });
         return;
       }
       console.error("Error accepting invitation:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+
+  async declineInvitation(req: Request, res: Response): Promise<void> {
+    try {
+      const token = req.params.token as string;
+      const userId = req.userId;
+
+      const invitation = await prisma.invitation.findUnique({ where: { token } });
+      if (!invitation) {
+        res.status(404).json({ error: "Invitation not found." });
+        return;
+      }
+
+      if (invitation.status !== "PENDING") {
+        res.status(400).json({ error: `Invitation is already ${invitation.status.toLowerCase()}.` });
+        return;
+      }
+
+      await prisma.invitation.update({
+        where: { id: invitation.id },
+        data: { status: "DECLINED" },
+      });
+
+      res.json({ message: "Invitation declined successfully." });
+    } catch (error) {
+      console.error("Error declining invitation:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+
+  async revokeInvitation(req: Request, res: Response): Promise<void> {
+    try {
+      const invitationId = req.params.invitationId as string;
+      const userId = req.userId;
+
+      const invitation = await prisma.invitation.findUnique({ where: { id: invitationId } });
+      if (!invitation) {
+        res.status(404).json({ error: "Invitation not found." });
+        return;
+      }
+
+      let canRevoke = invitation.invitedById === userId;
+      if (!canRevoke && invitation.projectId) {
+        const member = await prisma.projectMember.findUnique({
+          where: { projectId_userId: { projectId: invitation.projectId, userId } },
+        });
+        if (member && (member.role === "OWNER" || member.role === "ADMIN")) {
+          canRevoke = true;
+        }
+      }
+
+      if (!canRevoke) {
+        res.status(403).json({ error: "Insufficient permissions to revoke this invitation." });
+        return;
+      }
+
+      await prisma.invitation.delete({ where: { id: invitationId } });
+
+      res.json({ message: "Invitation revoked successfully." });
+    } catch (error) {
+      console.error("Error revoking invitation:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+
+  async getProjectInvitations(req: Request, res: Response): Promise<void> {
+    try {
+      const projectId = req.params.projectId as string;
+      const userId = req.userId;
+
+      const member = await prisma.projectMember.findUnique({
+        where: { projectId_userId: { projectId, userId } },
+      });
+      if (!member) {
+        res.status(403).json({ error: "Access denied." });
+        return;
+      }
+
+      const invitations = await prisma.invitation.findMany({
+        where: { projectId },
+        include: {
+          invitedBy: { select: { id: true, nameEncrypted: true, emailEncrypted: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      const formatted = invitations.map((inv) => {
+        let inviterName = null;
+        if (inv.invitedBy && inv.invitedBy.nameEncrypted) {
+          try {
+            inviterName = decrypt(inv.invitedBy.nameEncrypted);
+          } catch (e) {}
+        }
+        return {
+          id: inv.id,
+          email: inv.email,
+          role: inv.role,
+          status: inv.status,
+          token: inv.token,
+          createdAt: inv.createdAt,
+          expiresAt: inv.expiresAt,
+          invitedBy: inviterName || "Team Admin",
+        };
+      });
+
+      res.json(formatted);
+    } catch (error) {
+      console.error("Error fetching project invitations:", error);
       res.status(500).json({ error: "Internal server error" });
     }
   },
@@ -213,8 +323,8 @@ export const invitationController = {
         return;
       }
 
-      const { decrypt } = require("../lib/crypto");
-      const plaintextEmail = decrypt(user.emailEncrypted);
+      const formattedUser = formatUser(user);
+      const plaintextEmail = formattedUser.email;
 
       const [received, sent] = await Promise.all([
         prisma.invitation.findMany({
@@ -234,7 +344,6 @@ export const invitationController = {
         }),
       ]);
 
-      // Format received invitations to decrypt inviter name if available
       const formattedReceived = received.map((inv) => {
         let inviterName = null;
         if (inv.invitedBy && inv.invitedBy.nameEncrypted) {

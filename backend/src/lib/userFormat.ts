@@ -1,4 +1,4 @@
-import { decrypt } from "./crypto";
+import { decrypt, decryptDeterministic } from "./crypto";
 
 export interface CleanUser {
   id: string;
@@ -10,6 +10,19 @@ export interface CleanUser {
   updatedAt?: Date;
 }
 
+function safeDecrypt(val: string): string {
+  if (!val) return "";
+  try {
+    return decrypt(val);
+  } catch {
+    try {
+      return decryptDeterministic(val);
+    } catch {
+      return val;
+    }
+  }
+}
+
 export function formatUser(user: {
   id: string;
   emailEncrypted: string;
@@ -19,21 +32,8 @@ export function formatUser(user: {
   createdAt?: Date;
   updatedAt?: Date;
 }): CleanUser {
-  let email = "";
-  try {
-    email = decrypt(user.emailEncrypted);
-  } catch (err) {
-    email = user.emailEncrypted;
-  }
-
-  let name: string | null = null;
-  if (user.nameEncrypted) {
-    try {
-      name = decrypt(user.nameEncrypted);
-    } catch (err) {
-      name = user.nameEncrypted;
-    }
-  }
+  const email = safeDecrypt(user.emailEncrypted);
+  const name = user.nameEncrypted ? safeDecrypt(user.nameEncrypted) : null;
 
   return {
     id: user.id,

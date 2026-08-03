@@ -131,8 +131,7 @@ export const projectRepository = {
     },
 
     findUserByEmail: async (email: string) => {
-        const user = await userRepository.findByEmail(email);
-        return user ? formatUser(user) : null;
+        return userRepository.findByEmail(email);
     },
 
     addOrUpdateMember: async (projectId: string, userId: string, role: 'ADMIN' | 'MEMBER') => {

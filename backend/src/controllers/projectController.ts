@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { projectService, AppError } from '../services/projectService';
+import { invitationController } from './invitationController';
 import { checkCanCreateProject } from '../services/subscriptionService';
 import {
   createProjectSchema,
@@ -90,13 +91,7 @@ export async function getProjectMembers(req: Request, res: Response) {
 }
 
 export async function inviteMember(req: Request, res: Response) {
-  try {
-    const { email, role } = inviteMemberSchema.parse(req.body);
-    await projectService.inviteMember(req.params.projectId as string, email, role);
-    res.json({ success: true, message: 'User successfully added to the project.' });
-  } catch (err) {
-    handleError(res, err, 'inviteMember');
-  }
+  return invitationController.createInvitation(req, res);
 }
 
 export async function updateMemberRole(req: Request, res: Response) {

@@ -28,9 +28,10 @@ model Task {
 }
 
 model TaskAssignee {
-  id       String @id @default(cuid())
-  taskId   String
-  userId   String
+  id        String   @id @default(cuid())
+  taskId    String
+  userId    String
+  createdAt DateTime @default(now())
 
   task     Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   user     User @relation(fields: [userId], references: [id], onDelete: SetNull)

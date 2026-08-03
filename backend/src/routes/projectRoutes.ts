@@ -23,6 +23,12 @@ import {
   updateTask,
   deleteTask,
 } from '../controllers/taskController';
+import {
+  getTaskComments,
+  createComment,
+  updateComment,
+  deleteComment,
+} from '../controllers/commentController';
 
 const router = Router();
 
@@ -51,5 +57,11 @@ router.delete('/:projectId/stages/:stageId', requireProjectRole(['OWNER', 'ADMIN
 router.post('/:projectId/tasks', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), createTask);
 router.patch('/:projectId/tasks/:taskId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), updateTask);
 router.delete('/:projectId/tasks/:taskId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), deleteTask);
+
+// ── Comments ─────────────────────────────────────────────────────────────────
+router.get('/:projectId/tasks/:taskId/comments', getTaskComments);
+router.post('/:projectId/tasks/:taskId/comments', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), createComment);
+router.patch('/:projectId/tasks/:taskId/comments/:commentId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), updateComment);
+router.delete('/:projectId/tasks/:taskId/comments/:commentId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), deleteComment);
 
 export default router;

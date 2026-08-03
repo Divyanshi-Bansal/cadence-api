@@ -2,10 +2,6 @@ import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
-const STRIPE_PRICE_ID_FREE = process.env.STRIPE_PRICE_ID_FREE;
-const STRIPE_PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO;
-const STRIPE_PRICE_ID_ENTERPRISE = process.env.STRIPE_PRICE_ID_ENTERPRISE;
-
 // Limits based on plan
 const PLAN_LIMITS = {
   FREE: { projects: 1, members: 2 },
@@ -18,6 +14,9 @@ export const getUserPlan = async (userId: string) => {
     where: { userId },
   });
 
+  const STRIPE_PRICE_ID_PRO = process.env.STRIPE_PRICE_ID_PRO;
+  const STRIPE_PRICE_ID_ENTERPRISE = process.env.STRIPE_PRICE_ID_ENTERPRISE;
+
   // If no subscription or status is canceled/past_due, default to FREE
   const isActive = subscription?.status === "active" || subscription?.status === "trialing";
   
@@ -25,9 +24,9 @@ export const getUserPlan = async (userId: string) => {
     return { name: "FREE", limits: PLAN_LIMITS.FREE, currentPeriodEnd: null };
   }
 
-  if (subscription.stripePriceId === STRIPE_PRICE_ID_ENTERPRISE) {
+  if (subscription.stripePriceId && subscription.stripePriceId === STRIPE_PRICE_ID_ENTERPRISE) {
     return { name: "ENTERPRISE", limits: PLAN_LIMITS.ENTERPRISE, currentPeriodEnd: subscription.currentPeriodEnd };
-  } else if (subscription.stripePriceId === STRIPE_PRICE_ID_PRO) {
+  } else if (subscription.stripePriceId && subscription.stripePriceId === STRIPE_PRICE_ID_PRO) {
     return { name: "PRO", limits: PLAN_LIMITS.PRO, currentPeriodEnd: subscription.currentPeriodEnd };
   }
 

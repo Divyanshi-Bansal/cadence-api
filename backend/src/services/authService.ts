@@ -75,14 +75,11 @@ export const authService = {
     let user = await userRepository.findByEmail(email);
 
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          emailEncrypted: encryptDeterministic(email),
-          nameEncrypted: name ? encrypt(name) : null,
-          passwordHash: null,
-          authProvider: "CREDENTIALS",
-          isEmailVerified: false,
-        },
+      user = await userRepository.create({
+        email,
+        name,
+        authProvider: "CREDENTIALS",
+        isEmailVerified: false,
       });
     }
 
@@ -164,7 +161,7 @@ export const authService = {
       return {
         message:
           "Account already exists! We have sent a magic link to your email to log you in.",
-        user: formatUser(existing),
+        user: existing,
         magicLink: magicRes.magicLink,
       };
     }
@@ -193,20 +190,20 @@ export const authService = {
   },
 
   login: async (email: string, password: string): Promise<AuthResult> => {
-    const user = await userRepository.findByEmail(email);
+    const rawUser = await userRepository.findByEmailEncrypted(encryptDeterministic(email));
 
-    if (!user || !user.passwordHash) {
+    if (!rawUser || !rawUser.passwordHash) {
       throw new AppError("Invalid email or password", 401);
     }
 
-    const isValidPassword = await argon2.verify(user.passwordHash, password);
+    const isValidPassword = await argon2.verify(rawUser.passwordHash, password);
     if (!isValidPassword) {
       throw new AppError("Invalid email or password", 401);
     }
 
-    const cleanUser = formatUser(user);
+    const cleanUser = formatUser(rawUser);
     const { accessToken, refreshToken } =
-      await authService.generateTokenPair(user.id);
+      await authService.generateTokenPair(rawUser.id);
 
     return { user: cleanUser, accessToken, refreshToken };
   },
@@ -297,19 +294,16 @@ export const authService = {
     let user = await userRepository.findByEmail(email);
 
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          emailEncrypted: encryptDeterministic(email),
-          nameEncrypted: name ? encrypt(name) : null,
-          passwordHash: null,
-          authProvider: "GOOGLE",
-          providerAccountId: sub,
-          isEmailVerified: true,
-        },
+      user = await userRepository.create({
+        email,
+        name,
+        authProvider: "GOOGLE",
+        providerAccountId: sub,
+        isEmailVerified: true,
       });
     }
 
-    const cleanUser = formatUser(user);
+    const cleanUser = user;
     const { accessToken, refreshToken } =
       await authService.generateTokenPair(user.id);
 
@@ -373,19 +367,16 @@ export const authService = {
     let user = await userRepository.findByEmail(email);
 
     if (!user) {
-      user = await prisma.user.create({
-        data: {
-          emailEncrypted: encryptDeterministic(email),
-          nameEncrypted: ghUser.name ? encrypt(ghUser.name) : null,
-          passwordHash: null,
-          authProvider: "GITHUB",
-          providerAccountId: sub,
-          isEmailVerified: true,
-        },
+      user = await userRepository.create({
+        email,
+        name: ghUser.name,
+        authProvider: "GITHUB",
+        providerAccountId: sub,
+        isEmailVerified: true,
       });
     }
 
-    const cleanUser = formatUser(user);
+    const cleanUser = user;
     const tokenPair = await authService.generateTokenPair(user.id);
 
     const oneTimeCode = crypto.randomBytes(32).toString("hex");
