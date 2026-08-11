@@ -5,7 +5,8 @@ const client = new Client({
   connectionString: process.env.DATABASE_URL,
 });
 
-client.connect()
+client
+  .connect()
   .then(() => {
     console.log("✅ Connected successfully!");
     return client.end();

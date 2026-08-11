@@ -1,14 +1,14 @@
 model Comment {
   id         String   @id @default(cuid())
   taskId     String
-  userId     String
+  userId     String?
   content    Json?
   replyToId  String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  task       Task      @relation(fields: [taskId], references: [id])
-  user       User      @relation(fields: [userId], references: [id])
-  replyTo    Comment?  @relation("CommentReplies", fields: [replyToId], references: [id])
+  task       Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user       User?      @relation(fields: [userId], references: [id])
+  replyTo    Comment?  @relation("CommentReplies", fields: [replyToId], references: [id], onDelete: Cascade)
   replies    Comment[] @relation("CommentReplies")
 }

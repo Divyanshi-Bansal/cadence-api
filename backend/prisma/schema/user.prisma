@@ -1,15 +1,49 @@
 model User {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
-  name      String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                String   @id @default(cuid())
+  emailEncrypted    String   @unique
+  nameEncrypted     String?
+  passwordHash      String?
+  authProvider      AuthProvider @default(CREDENTIALS)
+  providerAccountId String?
+  isEmailVerified   Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  memberships     ProjectMember[]
-  createdProjects Project[]      @relation("ProjectCreator")
+  projects        ProjectMember[]
   reportedTasks   Task[]
   assignedTasks   TaskAssignee[]
   notes           Note[]
   comments        Comment[]
+  sentInvitations Invitation[]
+  refreshTokens   RefreshToken[]
+  magicLinkTokens MagicLinkToken[]
+  subscription    Subscription?
+
+  @@unique([authProvider, providerAccountId])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model MagicLinkToken {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

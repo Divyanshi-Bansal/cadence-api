@@ -1,30 +1,42 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
-import { requireAuth } from './middlewares/requireAuth';
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+import authRoutes from "./routes/authRoutes";
+import userRoutes from "./routes/userRoutes";
+import projectRoutes from "./routes/projectRoutes";
+import { invitationRoutes } from "./routes/invitationRoutes";
+import stripeRoutes from "./routes/stripeRoutes";
 
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+app.use(
+  cors({
+    origin: [frontendUrl, "http://localhost:3000"],
+    credentials: true,
+  }),
+);
+
+app.use(cookieParser());
+
+// Webhook route needs raw body parsing, so it must be before express.json()
+app.use("/api/stripe", stripeRoutes);
+
 app.use(express.json());
 
 const PORT = process.env.PORT || 4000;
 
-// ── Public routes ────────────────────────────────────────────────────────────
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok" });
 });
 
-// ── Protected routes (every handler below requires a valid Clerk JWT) ────────
-// Example: GET /me  — returns the verified userId from the token
-app.get('/me', requireAuth, (req, res) => {
-  res.json({ userId: req.userId });
-});
-
-// TODO: mount feature routers here, e.g.:
-// import habitRoutes from './routes/habits';
-// app.use('/habits', requireAuth, habitRoutes);
+app.use("/api/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/projects", projectRoutes);
+app.use("/api/invitations", invitationRoutes);
 
 app.listen(PORT, () => {
   console.log(`Server running on PORT ${PORT}`);
