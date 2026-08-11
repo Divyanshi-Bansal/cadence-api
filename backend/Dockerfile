@@ -35,6 +35,9 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm ci --omit=dev
 
+# Explicitly install the prisma CLI globally so we can run migrations!
+RUN npm install -g prisma
+
 # Copy generated Prisma client from builder
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
@@ -47,4 +50,4 @@ COPY prisma ./prisma/
 
 EXPOSE 8080
 
-CMD ["npm", "start"]
+CMD sh -c "npx prisma migrate deploy && npm start"
