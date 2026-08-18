@@ -23,6 +23,7 @@ import {
   updateTask,
   deleteTask,
 } from '../controllers/taskController';
+import { aiController } from '../controllers/aiController';
 import {
   getTaskComments,
   createComment,
@@ -54,9 +55,13 @@ router.patch('/:projectId/stages/:stageId', requireProjectRole(['OWNER', 'ADMIN'
 router.delete('/:projectId/stages/:stageId', requireProjectRole(['OWNER', 'ADMIN']), deleteStage);
 
 // ── Tasks ────────────────────────────────────────────────────────────────────
+router.post('/:projectId/tasks/bulk', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), aiController.bulkCreateTasks);
 router.post('/:projectId/tasks', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), createTask);
 router.patch('/:projectId/tasks/:taskId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), updateTask);
 router.delete('/:projectId/tasks/:taskId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), deleteTask);
+
+// ── AI Generation ────────────────────────────────────────────────────────────
+router.post('/:projectId/ai-generate', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), aiController.generateTickets);
 
 // ── Comments ─────────────────────────────────────────────────────────────────
 router.get('/:projectId/tasks/:taskId/comments', getTaskComments);

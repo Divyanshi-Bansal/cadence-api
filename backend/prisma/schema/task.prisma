@@ -7,6 +7,7 @@ model Task {
   title            String
   description      Json?
   teamLabel        String?
+  tags             String[]  @default([])
   priority         Priority  @default(MEDIUM)
   reporterId       String
   dueDate          DateTime?

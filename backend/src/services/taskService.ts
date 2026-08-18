@@ -16,6 +16,8 @@ export const taskService = {
       parentTaskId?: string | null;
       dueDate?: Date | null;
       estimatedMinutes?: number | null;
+      tags?: string[];
+      subtasks?: any[];
     }
   ) => {
     // Validate target stage
@@ -28,6 +30,31 @@ export const taskService = {
       projectId,
       reporterId,
     });
+  },
+
+  bulkCreate: async (
+    projectId: string,
+    reporterId: string,
+    tasks: {
+      stageId: string;
+      issueTypeId?: string;
+      title: string;
+      description?: any;
+      priority?: any;
+      estimatedMinutes?: number | null;
+      tags?: string[];
+      subtasks?: any[];
+    }[]
+  ) => {
+    // We can run these in sequence or Promise.all. 
+    // Sequence is safer for DB connection pools if the array is large, 
+    // but Promise.all is faster. We'll use Promise.all for speed.
+    const createdTasks = await Promise.all(
+      tasks.map((task) =>
+        taskService.create(projectId, reporterId, task)
+      )
+    );
+    return createdTasks;
   },
 
   update: async (

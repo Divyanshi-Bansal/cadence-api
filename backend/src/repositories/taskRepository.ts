@@ -27,6 +27,8 @@ export const taskRepository = {
     dueDate?: Date | null;
     estimatedMinutes?: number | null;
     assigneeIds?: string[];
+    tags?: string[];
+    subtasks?: any[];
   }) => {
     let issueTypeId = data.issueTypeId;
     
@@ -45,19 +47,38 @@ export const taskRepository = {
     }
 
     return prisma.$transaction(async (tx) => {
+      const createData: any = {
+        projectId: data.projectId,
+        stageId: data.stageId,
+        issueTypeId: issueTypeId!,
+        title: data.title,
+        description: data.description || null,
+        priority: data.priority || 'MEDIUM',
+        reporterId: data.reporterId,
+        parentTaskId: data.parentTaskId || null,
+        dueDate: data.dueDate || null,
+        estimatedMinutes: data.estimatedMinutes || null,
+        tags: data.tags || [],
+      };
+
+      if (data.subtasks && data.subtasks.length > 0) {
+        createData.subtasks = {
+          create: data.subtasks.map((st: any) => ({
+            projectId: data.projectId,
+            stageId: st.stageId || data.stageId,
+            issueTypeId: st.issueTypeId || issueTypeId,
+            title: st.title,
+            description: st.description || null,
+            priority: st.priority || 'MEDIUM',
+            reporterId: data.reporterId,
+            estimatedMinutes: st.estimatedMinutes || null,
+            tags: st.tags || [],
+          }))
+        };
+      }
+
       const task = await tx.task.create({
-        data: {
-          projectId: data.projectId,
-          stageId: data.stageId,
-          issueTypeId: issueTypeId!,
-          title: data.title,
-          description: data.description || null,
-          priority: data.priority || 'MEDIUM',
-          reporterId: data.reporterId,
-          parentTaskId: data.parentTaskId || null,
-          dueDate: data.dueDate || null,
-          estimatedMinutes: data.estimatedMinutes || null,
-        },
+        data: createData,
       });
 
       if (data.assigneeIds && data.assigneeIds.length > 0) {

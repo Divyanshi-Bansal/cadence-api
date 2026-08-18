@@ -4,9 +4,10 @@ import { formatUser } from '../lib/userFormat';
 import { userRepository } from './userRepository';
 
 const DEFAULT_STAGES = [
-  { name: 'To Do', order: 0, isDoneStage: false },
-  { name: 'In Progress', order: 1, isDoneStage: false },
-  { name: 'Done', order: 2, isDoneStage: true },
+  { name: 'Backlog', order: 0, isDoneStage: false },
+  { name: 'To Do', order: 1, isDoneStage: false },
+  { name: 'In Progress', order: 2, isDoneStage: false },
+  { name: 'Done', order: 3, isDoneStage: true },
 ];
 
 const DEFAULT_ISSUE_TYPES = [{ name: 'Task' }, { name: 'Bug' }, { name: 'Feature' }];
