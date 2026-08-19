@@ -47,11 +47,25 @@ export const taskRepository = {
     }
 
     return prisma.$transaction(async (tx) => {
+      let totalTasksToCreate = 1;
+      if (data.subtasks && data.subtasks.length > 0) {
+        totalTasksToCreate += data.subtasks.length;
+      }
+
+      const project = await tx.project.update({
+        where: { id: data.projectId },
+        data: { taskCount: { increment: totalTasksToCreate } }
+      });
+      
+      let nextId = project.taskCount - totalTasksToCreate + 1;
+      const parentIssueKey = `${project.taskPrefix}-${nextId++}`;
+
       const createData: any = {
         projectId: data.projectId,
         stageId: data.stageId,
         issueTypeId: issueTypeId!,
         title: data.title,
+        issueKey: parentIssueKey,
         description: data.description || null,
         priority: data.priority || 'MEDIUM',
         reporterId: data.reporterId,
@@ -68,6 +82,7 @@ export const taskRepository = {
             stageId: st.stageId || data.stageId,
             issueTypeId: st.issueTypeId || issueTypeId,
             title: st.title,
+            issueKey: `${project.taskPrefix}-${nextId++}`,
             description: st.description || null,
             priority: st.priority || 'MEDIUM',
             reporterId: data.reporterId,
@@ -125,13 +140,7 @@ export const taskRepository = {
         data: scalarFields,
       });
 
-      // If parent stage changes, cascade stage update to all its subtasks
-      if (scalarFields.stageId) {
-        await tx.task.updateMany({
-          where: { parentTaskId: taskId },
-          data: { stageId: scalarFields.stageId },
-        });
-      }
+      // Stage cascading to subtasks has been removed per user request
 
       if (assigneeIds !== undefined) {
         await tx.taskAssignee.deleteMany({

@@ -46,14 +46,12 @@ export const taskService = {
       subtasks?: any[];
     }[]
   ) => {
-    // We can run these in sequence or Promise.all. 
-    // Sequence is safer for DB connection pools if the array is large, 
-    // but Promise.all is faster. We'll use Promise.all for speed.
-    const createdTasks = await Promise.all(
-      tasks.map((task) =>
-        taskService.create(projectId, reporterId, task)
-      )
-    );
+    // Using a sequential loop to prevent exhausting the database connection pool (P2028 error)
+    const createdTasks = [];
+    for (const task of tasks) {
+      const created = await taskService.create(projectId, reporterId, task);
+      createdTasks.push(created);
+    }
     return createdTasks;
   },
 

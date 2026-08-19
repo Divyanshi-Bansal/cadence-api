@@ -78,13 +78,16 @@ export const aiService = {
       }
     });
 
-    const prompt = `You are an expert technical product manager. I will provide you with a project brief or requirements document. 
-Your task is to break it down into actionable Agile tickets (Features, Tasks, and Bugs).
-Ensure that the tasks cover the key functionalities described in the brief.
+    const prompt = `You are an expert Technical Product Manager and Tech Lead. I will provide you with a project brief or requirements document. 
+Your task is to break it down into highly technical, actionable Agile tickets (Features, Tasks, and Bugs) tailored for real-world developers.
 
 IMPORTANT INSTRUCTIONS:
-1. Assign relevant tags to each task. Tags could be "Operational", "Backend", "Frontend", etc. A task can have multiple tags (e.g., ["Frontend", "Backend"]).
-2. If a task is large or complex, break it down into smaller subtasks using the "subtasks" array field. Subtasks have the same structure as parent tasks, but they cannot have their own subtasks.
+1. Clear and Concise: Write titles that are simple, direct, and easy to understand at a glance (e.g., "Add Google OAuth Login" instead of "Implement Federated Identity Authentication via Google OAuth 2.0"). 
+2. Concise Descriptions: Keep descriptions brief and to the point. Focus on the *what* and *why*. Provide high-level technical guidance only if absolutely necessary.
+3. Acceptance Criteria: Include a short, bulleted list of 2-4 clear, testable acceptance criteria. Do not over-explain.
+3. Tags: Assign relevant tags to each task (e.g., "Frontend", "Backend", "Database", "DevOps", "Security", "Design"). A task can have multiple tags.
+4. Subtasks: If a task is large or complex (e.g., an entire feature), break it down into smaller, focused subtasks using the "subtasks" array. Parent tasks should act as Epics/Features, while subtasks should be the actionable development units. Subtasks cannot have their own subtasks.
+5. Comprehensive Scope: Do not just generate tasks for explicitly mentioned examples. If the prompt implies a broader scope (e.g., "all components in a directory", but only names a few), generate tasks for the entire implied scope. Anticipate all necessary tasks to fully complete the project brief, even if they aren't explicitly spelled out.
 
 Project Brief:
 """
