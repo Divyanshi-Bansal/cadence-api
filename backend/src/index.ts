@@ -38,6 +38,19 @@ app.use("/api/users", userRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/invitations", invitationRoutes);
 
+// Global Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Global error caught:", err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    success: false,
+    error: {
+      code: err.code || "INTERNAL_SERVER_ERROR",
+      message: err.message || "An unexpected error occurred.",
+    },
+  });
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on PORT ${PORT}`);
 });
