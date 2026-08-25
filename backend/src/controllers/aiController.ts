@@ -5,9 +5,14 @@ import { AppError } from '../services/projectService';
 import { z } from 'zod';
 import { stageRepository } from '../repositories/stageRepository';
 import { prisma } from '../lib/prisma';
+import { mcpChatService } from '../services/mcpChatService';
 
 const generateSchema = z.object({
   brief: z.string().min(10, "Brief must be at least 10 characters long."),
+});
+
+const chatSchema = z.object({
+  message: z.string().min(1, "Message cannot be empty."),
 });
 
 const taskSchemaDef: z.ZodType<any> = z.lazy(() =>
@@ -27,6 +32,27 @@ const bulkCreateSchema = z.object({
 });
 
 export const aiController = {
+  async inAppAiChat(req: Request, res: Response) {
+    try {
+      const projectId = req.params.projectId as string;
+      const userId = req.userId || process.env.CADENCE_USER_ID || '';
+      const { message } = chatSchema.parse(req.body);
+
+      const result = await mcpChatService.processUserMessage(projectId, userId, message);
+      res.json(result);
+    } catch (err: any) {
+      console.error('[aiController] inAppAiChat Error:', err);
+      if (err instanceof z.ZodError) {
+        res.status(400).json({ error: 'Validation failed', details: err.issues });
+        return;
+      }
+      res.status(500).json({
+        error: 'AI Assistant temporarily unavailable. Please check backend server configuration.',
+        reply: 'Sorry, I am temporarily unable to process your request. Please ensure the backend server and Gemini API key are configured correctly.'
+      });
+    }
+  },
+
   async generateTickets(req: Request, res: Response) {
     try {
       const { brief } = generateSchema.parse(req.body);
@@ -99,3 +125,4 @@ export const aiController = {
     }
   }
 };
+

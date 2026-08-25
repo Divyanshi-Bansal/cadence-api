@@ -60,8 +60,9 @@ router.post('/:projectId/tasks', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']
 router.patch('/:projectId/tasks/:taskId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), updateTask);
 router.delete('/:projectId/tasks/:taskId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), deleteTask);
 
-// ── AI Generation ────────────────────────────────────────────────────────────
+// ── AI Generation & Copilot Chat ──────────────────────────────────────────────
 router.post('/:projectId/ai-generate', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), aiController.generateTickets);
+router.post('/:projectId/ai-chat', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), aiController.inAppAiChat);
 
 // ── Comments ─────────────────────────────────────────────────────────────────
 router.get('/:projectId/tasks/:taskId/comments', getTaskComments);

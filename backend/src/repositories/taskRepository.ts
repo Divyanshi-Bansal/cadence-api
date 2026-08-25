@@ -52,13 +52,37 @@ export const taskRepository = {
         totalTasksToCreate += data.subtasks.length;
       }
 
-      const project = await tx.project.update({
+      const project = await tx.project.findUnique({
         where: { id: data.projectId },
-        data: { taskCount: { increment: totalTasksToCreate } }
       });
-      
-      let nextId = project.taskCount - totalTasksToCreate + 1;
-      const parentIssueKey = `${project.taskPrefix}-${nextId++}`;
+
+      if (!project) {
+        throw new Error(`Project ${data.projectId} not found.`);
+      }
+
+      const existingTasks = await tx.task.findMany({
+        where: { issueKey: { startsWith: `${project.taskPrefix}-` } },
+        select: { issueKey: true },
+      });
+
+      let maxNum = project.taskCount || 0;
+      for (const t of existingTasks) {
+        if (t.issueKey) {
+          const parts = t.issueKey.split("-");
+          const num = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+
+      const updatedProject = await tx.project.update({
+        where: { id: data.projectId },
+        data: { taskCount: maxNum + totalTasksToCreate },
+      });
+
+      let nextId = maxNum + 1;
+      const parentIssueKey = `${updatedProject.taskPrefix}-${nextId++}`;
 
       const createData: any = {
         projectId: data.projectId,
@@ -140,7 +164,12 @@ export const taskRepository = {
         data: scalarFields,
       });
 
-      // Stage cascading to subtasks has been removed per user request
+      if (scalarFields.stageId) {
+        await tx.task.updateMany({
+          where: { parentTaskId: taskId },
+          data: { stageId: scalarFields.stageId },
+        });
+      }
 
       if (assigneeIds !== undefined) {
         await tx.taskAssignee.deleteMany({

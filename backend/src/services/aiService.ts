@@ -67,42 +67,48 @@ export const aiService = {
       description: 'Optional list of subtasks if this is a large task that should be broken down.'
     };
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-3.5-flash',
-      generationConfig: {
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: SchemaType.ARRAY,
-          items: taskSchema
-        }
-      }
-    });
+    const candidateModels = ['gemini-3.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.6-flash'];
+    let lastError: any = null;
 
-    const prompt = `You are an expert Technical Product Manager and Tech Lead. I will provide you with a project brief or requirements document. 
+    for (const modelName of candidateModels) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: {
+              type: SchemaType.ARRAY,
+              items: taskSchema
+            }
+          }
+        });
+
+        const prompt = `You are an expert Technical Product Manager and Tech Lead. I will provide you with a project brief or requirements document. 
 Your task is to break it down into highly technical, actionable Agile tickets (Features, Tasks, and Bugs) tailored for real-world developers.
 
 IMPORTANT INSTRUCTIONS:
 1. Clear and Concise: Write titles that are simple, direct, and easy to understand at a glance (e.g., "Add Google OAuth Login" instead of "Implement Federated Identity Authentication via Google OAuth 2.0"). 
 2. Concise Descriptions: Keep descriptions brief and to the point. Focus on the *what* and *why*. Provide high-level technical guidance only if absolutely necessary.
 3. Acceptance Criteria: Include a short, bulleted list of 2-4 clear, testable acceptance criteria. Do not over-explain.
-3. Tags: Assign relevant tags to each task (e.g., "Frontend", "Backend", "Database", "DevOps", "Security", "Design"). A task can have multiple tags.
-4. Subtasks: If a task is large or complex (e.g., an entire feature), break it down into smaller, focused subtasks using the "subtasks" array. Parent tasks should act as Epics/Features, while subtasks should be the actionable development units. Subtasks cannot have their own subtasks.
-5. Comprehensive Scope: Do not just generate tasks for explicitly mentioned examples. If the prompt implies a broader scope (e.g., "all components in a directory", but only names a few), generate tasks for the entire implied scope. Anticipate all necessary tasks to fully complete the project brief, even if they aren't explicitly spelled out.
+4. Tags: Assign relevant tags to each task (e.g., "Frontend", "Backend", "Database", "DevOps", "Security", "Design"). A task can have multiple tags.
+5. Subtasks: If a task is large or complex (e.g., an entire feature), break it down into smaller, focused subtasks using the "subtasks" array. Parent tasks should act as Epics/Features, while subtasks should be the actionable development units. Subtasks cannot have their own subtasks.
+6. Comprehensive Scope: Do not just generate tasks for explicitly mentioned examples. If the prompt implies a broader scope, generate tasks for the entire implied scope.
 
 Project Brief:
 """
 ${brief}
 """`;
 
-    const result = await model.generateContent(prompt);
-    const text = result.response.text();
-    
-    try {
-      const parsed = JSON.parse(text);
-      return parsed as GeneratedTask[];
-    } catch (err) {
-      console.error('Failed to parse Gemini response as JSON', err);
-      throw new Error('Failed to generate tickets due to invalid AI response format.');
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        const parsed = JSON.parse(text);
+        return parsed as GeneratedTask[];
+      } catch (err: any) {
+        console.warn(`[aiService] Model ${modelName} failed or rate limited:`, err?.message || err);
+        lastError = err;
+      }
     }
+
+    throw lastError || new Error('Failed to generate tickets due to AI rate limits or unavailable models.');
   }
 };
