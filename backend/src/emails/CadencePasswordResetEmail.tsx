@@ -12,49 +12,52 @@ import {
 } from "@react-email/components";
 import React from "react";
 
-interface ProjectInvitationEmailProps {
-  inviterName?: string;
-  projectName?: string;
-  inviteLink?: string;
+interface CadencePasswordResetEmailProps {
+  userName?: string;
+  resetLink?: string;
 }
 
-export const ProjectInvitationEmail = ({
-  inviterName = "A team member",
-  projectName = "Cadence Project",
-  inviteLink = "http://localhost:3000",
-}: ProjectInvitationEmailProps) => (
+export const CadencePasswordResetEmail = ({
+  userName = "Valued Member",
+  resetLink = "http://localhost:3000/auth/reset-password",
+}: CadencePasswordResetEmailProps) => (
   <Html>
     <Head />
     <Body style={main}>
-      <Preview>You've been invited to join {projectName} on Cadence</Preview>
+      <Preview>Reset your Cadence account password.</Preview>
       <Container style={container}>
         <Section style={box}>
           <div style={brandBadge}>C</div>
 
           <Hr style={hr} />
 
-          <Text style={heading}>🎉 You've been invited to join {projectName}!</Text>
+          <Text style={heading}>🔑 Reset Your Password</Text>
 
-          <Text style={paragraph}>Hi there,</Text>
+          <Text style={paragraph}>Hi {userName},</Text>
 
           <Text style={paragraph}>
-            <strong style={boldText}>{inviterName}</strong> has invited you to collaborate on the project <strong style={boldText}>{projectName}</strong> in Cadence.
+            We received a request to reset the password for your Cadence account. Click the button below to choose a new password.
           </Text>
 
           <Section style={buttonContainer}>
-            <Button style={button} href={inviteLink}>
-              Accept Invitation & Join Project →
+            <Button style={button} href={resetLink}>
+              Reset Your Password →
             </Button>
           </Section>
 
           <Text style={paragraph}>
-            If you don't have a Cadence account yet, you'll be able to create one before accepting the invitation.
+            Or copy and paste this link into your browser:
+          </Text>
+          <Text style={urlText}>
+            <Link style={anchor} href={resetLink}>
+              {resetLink}
+            </Link>
           </Text>
 
           <Hr style={hr} />
 
           <Text style={footer}>
-            If you didn't expect this invitation, you can safely ignore this email.
+            This password reset link is valid for 1 hour. If you didn't request a password reset, you can safely ignore this email — your password will remain unchanged.
           </Text>
           <Text style={footer}>
             Cadence Inc. — Modern Agile & Project Management Platform
@@ -120,9 +123,16 @@ const paragraph = {
   margin: '12px 0',
 };
 
-const boldText = {
-  color: '#172B4D',
-  fontWeight: 'bold' as const,
+const urlText = {
+  color: '#0052CC',
+  fontSize: '13px',
+  wordBreak: 'break-all' as const,
+  margin: '8px 0 16px',
+};
+
+const anchor = {
+  color: '#0052CC',
+  textDecoration: 'underline',
 };
 
 const buttonContainer = {
@@ -149,4 +159,4 @@ const footer = {
   lineHeight: '16px',
 };
 
-export default ProjectInvitationEmail;
+export default CadencePasswordResetEmail;

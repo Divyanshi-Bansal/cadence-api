@@ -12,49 +12,51 @@ import {
 } from "@react-email/components";
 import React from "react";
 
-interface ProjectInvitationEmailProps {
-  inviterName?: string;
+interface CadenceProjectCreatedEmailProps {
+  ownerName?: string;
   projectName?: string;
-  inviteLink?: string;
+  projectKey?: string;
+  projectUrl?: string;
 }
 
-export const ProjectInvitationEmail = ({
-  inviterName = "A team member",
-  projectName = "Cadence Project",
-  inviteLink = "http://localhost:3000",
-}: ProjectInvitationEmailProps) => (
+export const CadenceProjectCreatedEmail = ({
+  ownerName = "Project Owner",
+  projectName = "New Project",
+  projectKey = "PROJ",
+  projectUrl = "http://localhost:3000",
+}: CadenceProjectCreatedEmailProps) => (
   <Html>
     <Head />
     <Body style={main}>
-      <Preview>You've been invited to join {projectName} on Cadence</Preview>
+      <Preview>Your new project "{projectName}" [{projectKey}] has been created on Cadence!</Preview>
       <Container style={container}>
         <Section style={box}>
           <div style={brandBadge}>C</div>
 
           <Hr style={hr} />
 
-          <Text style={heading}>🎉 You've been invited to join {projectName}!</Text>
+          <Text style={heading}>🚀 Project Created: {projectName}</Text>
 
-          <Text style={paragraph}>Hi there,</Text>
+          <Text style={paragraph}>Hi {ownerName},</Text>
 
           <Text style={paragraph}>
-            <strong style={boldText}>{inviterName}</strong> has invited you to collaborate on the project <strong style={boldText}>{projectName}</strong> in Cadence.
+            Congratulations! Your new project <strong style={boldText}>{projectName}</strong> with issue prefix <strong style={boldText}>[{projectKey}]</strong> is now live on Cadence.
+          </Text>
+
+          <Text style={paragraph}>
+            You can start creating tasks, inviting team members, and interacting with your Cadence AI Copilot right away.
           </Text>
 
           <Section style={buttonContainer}>
-            <Button style={button} href={inviteLink}>
-              Accept Invitation & Join Project →
+            <Button style={button} href={projectUrl}>
+              Open Project Board →
             </Button>
           </Section>
-
-          <Text style={paragraph}>
-            If you don't have a Cadence account yet, you'll be able to create one before accepting the invitation.
-          </Text>
 
           <Hr style={hr} />
 
           <Text style={footer}>
-            If you didn't expect this invitation, you can safely ignore this email.
+            Need assistance setting up your project workflow? Contact support at support@cadence.dev.
           </Text>
           <Text style={footer}>
             Cadence Inc. — Modern Agile & Project Management Platform
@@ -149,4 +151,4 @@ const footer = {
   lineHeight: '16px',
 };
 
-export default ProjectInvitationEmail;
+export default CadenceProjectCreatedEmail;

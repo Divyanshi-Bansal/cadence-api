@@ -1,5 +1,7 @@
 import { projectRepository } from '../repositories/projectRepository';
 import { prisma } from '../lib/prisma';
+import { sendProjectCreatedEmail } from '../lib/email';
+import { decrypt } from '../lib/crypto';
 
 export class AppError extends Error {
   constructor(public readonly message: string, public readonly statusCode: number = 400) {
@@ -17,8 +19,34 @@ export const projectService = {
     return project;
   },
 
-  create: (data: { name: string; projectType?: string; description?: string }, ownerId: string) =>
-    projectRepository.create(data, ownerId),
+  create: async (data: { name: string; projectType?: string; description?: string }, ownerId: string) => {
+    const project = await projectRepository.create(data, ownerId);
+
+    // Fire & forget project creation email to owner
+    (async () => {
+      try {
+        const owner = await prisma.user.findUnique({ where: { id: ownerId } });
+        if (owner) {
+          let email = owner.emailEncrypted;
+          let name = owner.nameEncrypted;
+          try { email = decrypt(owner.emailEncrypted); } catch (e) {}
+          try { if (owner.nameEncrypted) name = decrypt(owner.nameEncrypted); } catch (e) {}
+
+          await sendProjectCreatedEmail(
+            email,
+            name || email,
+            project.name,
+            (project as any).taskPrefix || 'PROJ',
+            project.id
+          );
+        }
+      } catch (err: any) {
+        console.error('[ProjectService] Error sending project creation email:', err.message || err);
+      }
+    })();
+
+    return project;
+  },
 
   update: async (projectId: string, data: any) => {
     const project = await prisma.project.findUnique({ where: { id: projectId } });

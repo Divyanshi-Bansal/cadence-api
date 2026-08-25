@@ -2,11 +2,53 @@ import { Request, Response } from "express";
 import Stripe from "stripe";
 import { prisma } from "../lib/prisma";
 import { getUserPlan } from "../services/subscriptionService";
+import { sendSubscriptionNotificationEmail } from "../lib/email";
+import { decrypt } from "../lib/crypto";
+import { SubscriptionEventType } from "../emails/CadenceSubscriptionEmail";
 
 const stripeKey = process.env.STRIPE_SECRET_KEY || "sk_test_placeholder";
 const stripe = new Stripe(stripeKey, {
   apiVersion: "2024-04-10" as any,
 });
+
+const getPlanNameFromPriceId = (priceId?: string | null): string => {
+  if (!priceId) return "FREE";
+  if (priceId === process.env.STRIPE_PRICE_ID_ENTERPRISE) return "ENTERPRISE";
+  if (priceId === process.env.STRIPE_PRICE_ID_PRO) return "PRO";
+  return "PRO";
+};
+
+const sendSubscriptionEmailForUser = async (
+  userId: string,
+  eventType: SubscriptionEventType,
+  planName: string = "PRO",
+  amountPaid: string = "$19.00",
+  currentPeriodEnd?: Date | null
+) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user) return;
+    let email = user.emailEncrypted;
+    let name = user.nameEncrypted;
+    try { email = decrypt(user.emailEncrypted); } catch (e) {}
+    try { if (user.nameEncrypted) name = decrypt(user.nameEncrypted); } catch (e) {}
+
+    const periodEndFormatted = currentPeriodEnd
+      ? currentPeriodEnd.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })
+      : undefined;
+
+    await sendSubscriptionNotificationEmail({
+      toEmail: email,
+      userName: name || email,
+      planName,
+      amountPaid,
+      billingPeriodEnd: periodEndFormatted,
+      eventType,
+    });
+  } catch (err: any) {
+    console.error("[StripeController] Error sending subscription notification email:", err);
+  }
+};
 
 export const syncUserSubscriptionFromStripe = async (userId: string, sessionId?: string) => {
   try {
@@ -17,8 +59,10 @@ export const syncUserSubscriptionFromStripe = async (userId: string, sessionId?:
         const sub = await stripe.subscriptions.retrieve(session.subscription as string);
         const customerId = session.customer as string;
         const priceId = sub.items.data[0]?.price?.id;
+        const currentPeriodEnd = new Date((sub as any).current_period_end * 1000);
+        const planName = getPlanNameFromPriceId(priceId);
 
-        return await prisma.subscription.upsert({
+        const updatedSub = await prisma.subscription.upsert({
           where: { userId },
           create: {
             userId,
@@ -26,16 +70,21 @@ export const syncUserSubscriptionFromStripe = async (userId: string, sessionId?:
             stripeSubscriptionId: sub.id,
             stripePriceId: priceId,
             status: sub.status,
-            currentPeriodEnd: new Date((sub as any).current_period_end * 1000),
+            currentPeriodEnd,
           },
           update: {
             stripeCustomerId: customerId,
             stripeSubscriptionId: sub.id,
             stripePriceId: priceId,
             status: sub.status,
-            currentPeriodEnd: new Date((sub as any).current_period_end * 1000),
+            currentPeriodEnd,
           },
         });
+
+        // Trigger welcome / new subscription email notification
+        await sendSubscriptionEmailForUser(userId, "NEW_SUBSCRIPTION", planName, "$19.00", currentPeriodEnd);
+
+        return updatedSub;
       }
     }
 
@@ -412,8 +461,10 @@ export const updateSubscription = async (req: Request, res: Response) => {
       where: { userId },
     });
 
-    // Handle Downgrade to FREE
+    // Handle Downgrade to FREE / Cancellation
     if (priceId === process.env.STRIPE_PRICE_ID_FREE || priceId === "tier-free") {
+      const oldPlanName = getPlanNameFromPriceId(subscription?.stripePriceId);
+
       if (subscription?.stripeSubscriptionId) {
         try {
           await stripe.subscriptions.cancel(subscription.stripeSubscriptionId);
@@ -440,6 +491,9 @@ export const updateSubscription = async (req: Request, res: Response) => {
         },
       });
 
+      // Dispatch CANCELLATION email notification
+      await sendSubscriptionEmailForUser(userId, "CANCELLATION", oldPlanName);
+
       return res.json({ success: true, message: "Subscription downgraded to Free." });
     }
 
@@ -464,6 +518,7 @@ export const updateSubscription = async (req: Request, res: Response) => {
 
     // Direct Upgrade/Downgrade between active paid tiers
     const stripeSub = await stripe.subscriptions.retrieve(subscription.stripeSubscriptionId);
+    const newPlanName = getPlanNameFromPriceId(priceId);
     
     const updatedSubscription = await stripe.subscriptions.update(
       subscription.stripeSubscriptionId,
@@ -481,6 +536,7 @@ export const updateSubscription = async (req: Request, res: Response) => {
     );
 
     const priceIdUpdated = updatedSubscription.items.data[0]?.price?.id;
+    const currentPeriodEnd = new Date((updatedSubscription as any).current_period_end * 1000);
 
     // Immediately update local DB state
     await prisma.subscription.update({
@@ -488,9 +544,12 @@ export const updateSubscription = async (req: Request, res: Response) => {
       data: {
         stripePriceId: priceIdUpdated || priceId,
         status: updatedSubscription.status,
-        currentPeriodEnd: new Date((updatedSubscription as any).current_period_end * 1000),
+        currentPeriodEnd,
       },
     });
+
+    // Dispatch UPGRADE / DOWNGRADE email notification
+    await sendSubscriptionEmailForUser(userId, "UPGRADE", newPlanName, "$19.00", currentPeriodEnd);
 
     const latestInvoice = updatedSubscription.latest_invoice as Stripe.Invoice;
 
