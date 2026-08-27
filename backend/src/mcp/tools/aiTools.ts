@@ -20,7 +20,7 @@ export function registerAiTools(server: McpServer) {
 
         if (!autoCreate) {
           return {
-            content: [{ type: "text", text: JSON.stringify({ message: "Tickets generated (preview mode). Set autoCreate: true to persist.", generatedTasks }, null, 2) }],
+            content: [{ type: "text" as const, text: JSON.stringify({ message: "Tickets generated (preview mode). Set autoCreate: true to persist.", generatedTasks }, null, 2) }],
           };
         }
 
@@ -32,7 +32,7 @@ export function registerAiTools(server: McpServer) {
 
         if (!firstStage) {
           return {
-            content: [{ type: "text", text: `Error: Project '${projectId}' has no board stages to add tasks to.` }],
+            content: [{ type: "text" as const, text: `Error: Project '${projectId}' has no board stages to add tasks to.` }],
             isError: true,
           };
         }
@@ -40,7 +40,7 @@ export function registerAiTools(server: McpServer) {
         const effectiveReporterId = reporterId || process.env.CADENCE_USER_ID || (await prisma.user.findFirst())?.id;
         if (!effectiveReporterId) {
           return {
-            content: [{ type: "text", text: "Error: reporterId parameter or CADENCE_USER_ID env var is required to create tasks." }],
+            content: [{ type: "text" as const, text: "Error: reporterId parameter or CADENCE_USER_ID env var is required to create tasks." }],
             isError: true,
           };
         }
@@ -58,8 +58,8 @@ export function registerAiTools(server: McpServer) {
             issueTypeId: issueType?.id,
             title: taskData.title,
             description: {
-              type: "doc",
-              content: [{ type: "paragraph", content: [{ type: "text", text: taskData.description }] }],
+              type: "doc" as const,
+              content: [{ type: "paragraph" as const, content: [{ type: "text" as const, text: taskData.description }] }],
             },
             priority: taskData.priority,
             reporterId: effectiveReporterId,
@@ -80,7 +80,7 @@ export function registerAiTools(server: McpServer) {
 
         return {
           content: [{
-            type: "text",
+            type: "text" as const,
             text: JSON.stringify({
               message: `Successfully generated and created ${createdTasks.length} tasks with subtasks in project ${projectId}`,
               tasks: createdTasks,
@@ -89,7 +89,7 @@ export function registerAiTools(server: McpServer) {
         };
       } catch (error: any) {
         return {
-          content: [{ type: "text", text: `AI ticket generation failed: ${error.message}` }],
+          content: [{ type: "text" as const, text: `AI ticket generation failed: ${error.message}` }],
           isError: true,
         };
       }

@@ -5,6 +5,7 @@ import { formatUser, CleanUser } from "../lib/userFormat";
 export interface CreateUserInput {
   email: string;
   name?: string | null;
+  jobRole?: string | null;
   passwordHash?: string | null;
   authProvider?: "CREDENTIALS" | "GOOGLE" | "GITHUB";
   providerAccountId?: string | null;
@@ -13,6 +14,7 @@ export interface CreateUserInput {
 
 export interface UpdateUserInput {
   name?: string | null;
+  jobRole?: string | null;
 }
 
 export const userRepository = {
@@ -56,6 +58,7 @@ export const userRepository = {
       data: {
         emailEncrypted,
         nameEncrypted,
+        jobRole: data.jobRole || null,
         passwordHash: data.passwordHash || null,
         authProvider: data.authProvider || "CREDENTIALS",
         providerAccountId: data.providerAccountId || null,
@@ -68,11 +71,13 @@ export const userRepository = {
 
   update: async (userId: string, data: UpdateUserInput): Promise<CleanUser> => {
     const nameEncrypted = data.name ? encrypt(data.name) : data.name === null ? null : undefined;
+    const jobRole = data.jobRole !== undefined ? data.jobRole : undefined;
 
     const user = await prisma.user.update({
       where: { id: userId },
       data: {
         ...(nameEncrypted !== undefined && { nameEncrypted }),
+        ...(jobRole !== undefined && { jobRole }),
       },
     });
 
