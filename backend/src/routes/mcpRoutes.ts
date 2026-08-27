@@ -5,22 +5,25 @@ import { prisma } from "../lib/prisma";
 import crypto from "crypto";
 
 const router = Router();
-const mcpServer = createCadenceMcpServer();
-
 // Global map to hold active SSE transports
 const activeTransports = new Map<string, SSEServerTransport>();
 
 // Middleware to authenticate PAT
 export const authenticateApiKey = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    let rawKey: string | undefined;
+
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Missing or invalid authorization header" });
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      rawKey = authHeader.split(" ")[1];
+    } else if (typeof req.query.token === "string" && req.query.token) {
+      rawKey = req.query.token;
+    } else if (typeof req.query.apiKey === "string" && req.query.apiKey) {
+      rawKey = req.query.apiKey;
     }
 
-    const rawKey = authHeader.split(" ")[1];
-    if (!rawKey.startsWith("cadence_ak_")) {
-      return res.status(401).json({ error: "Invalid API key format" });
+    if (!rawKey || !rawKey.startsWith("cadence_ak_")) {
+      return res.status(401).json({ error: "Missing or invalid authorization header or token parameter" });
     }
 
     const keyHash = crypto.createHash("sha256").update(rawKey).digest("hex");
@@ -28,21 +31,15 @@ export const authenticateApiKey = async (req: Request, res: Response, next: Next
       where: { keyHash },
     });
 
-    if (!tokenRecord || tokenRecord.revokedAt) {
-      return res.status(401).json({ error: "Invalid or revoked API key" });
+    if (!tokenRecord || tokenRecord.revokedAt || (tokenRecord.expiresAt && tokenRecord.expiresAt < new Date())) {
+      return res.status(401).json({ error: "Invalid, expired, or revoked API key" });
     }
 
     // Attach user id for tools to use
-    // We pass it via environment variable per request context, 
-    // or attach to req.user for express usage
     (req as any).user = { id: tokenRecord.userId };
     
     // Set CADENCE_USER_ID environment variable for MCP tools
-    // Note: In a highly concurrent environment, using an env var for request context is problematic,
-    // but this matches the existing pattern in projectTools/taskTools.
     process.env.CADENCE_USER_ID = tokenRecord.userId;
-
-
 
     next();
   } catch (error) {
@@ -56,10 +53,13 @@ router.get("/sse", authenticateApiKey, async (req: Request, res: Response) => {
   const transport = new SSEServerTransport("/api/mcp/message", res);
   const sessionId = transport.sessionId;
   
+  // Create a dedicated McpServer instance per connection session
+  const server = createCadenceMcpServer();
+  
   // Storing transport with a session ID BEFORE connecting to prevent race conditions
   activeTransports.set(sessionId, transport);
   
-  await mcpServer.connect(transport);
+  await server.connect(transport);
   
   res.on("close", () => {
     console.log(`[MCP] SSE connection closed for session ${sessionId}`);
@@ -70,7 +70,6 @@ router.get("/sse", authenticateApiKey, async (req: Request, res: Response) => {
 router.post("/message", authenticateApiKey, async (req: Request, res: Response) => {
   const sessionId = req.query.sessionId as string;
   console.log(`[MCP] POST /message received. sessionId from query: ${sessionId}`);
-  console.log(`[MCP] Active sessions:`, Array.from(activeTransports.keys()));
   
   const transport = activeTransports.get(sessionId);
   
@@ -79,8 +78,15 @@ router.post("/message", authenticateApiKey, async (req: Request, res: Response) 
     return res.status(404).json({ error: "Session not found or expired" });
   }
   
-  // Pass req.body to handlePostMessage since express.json() has already consumed the request stream!
-  await transport.handlePostMessage(req, res, req.body);
+  try {
+    // Pass req.body to handlePostMessage since express.json() has already consumed the request stream!
+    await transport.handlePostMessage(req, res, req.body);
+  } catch (error: any) {
+    console.error(`[MCP] Error handling post message for session ${sessionId}:`, error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "Failed to process message" });
+    }
+  }
 });
 
 export default router;
