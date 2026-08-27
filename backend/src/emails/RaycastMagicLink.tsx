@@ -21,9 +21,9 @@ interface RaycastMagicLinkEmailProps {
 export const RaycastMagicLinkEmail = ({
   magicLink = "http://localhost:3000",
 }: RaycastMagicLinkEmailProps) => (
-  <Html>
-    <Head />
-    <Tailwind>
+  <Tailwind>
+    <Html>
+      <Head />
       <Body className="bg-white font-sans">
         <Preview>Log in with this magic link.</Preview>
         <Container className="mx-auto my-0 pt-5 px-[25px] pb-12 bg-white">
@@ -51,13 +51,13 @@ export const RaycastMagicLinkEmail = ({
           <Text className="text-[#8898aa] text-xs leading-6">
             Cadence Inc. — Project Management Platform
           </Text>
-          <Text className="text-[#8898aa] text-xs leading-6">
+          <Text className="text-[#8898aa] text-[11px] leading-4 mt-1">
             Building the future of team collaboration
           </Text>
         </Container>
       </Body>
-    </Tailwind>
-  </Html>
+    </Html>
+  </Tailwind>
 );
 
 RaycastMagicLinkEmail.PreviewProps = {

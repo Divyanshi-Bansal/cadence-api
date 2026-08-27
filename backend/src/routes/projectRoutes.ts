@@ -11,6 +11,8 @@ import {
   inviteMember,
   updateMemberRole,
   removeMember,
+  getProjectNotes,
+  deleteProjectNote,
 } from '../controllers/projectController';
 import {
   createStage,
@@ -69,5 +71,9 @@ router.get('/:projectId/tasks/:taskId/comments', getTaskComments);
 router.post('/:projectId/tasks/:taskId/comments', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), createComment);
 router.patch('/:projectId/tasks/:taskId/comments/:commentId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), updateComment);
 router.delete('/:projectId/tasks/:taskId/comments/:commentId', requireProjectRole(['OWNER', 'ADMIN', 'MEMBER']), deleteComment);
+
+// ── Project Notes ────────────────────────────────────────────────────────────
+router.get('/:projectId/notes', getProjectNotes);
+router.delete('/:projectId/notes/:noteId', requireProjectRole(['OWNER', 'ADMIN']), deleteProjectNote);
 
 export default router;
