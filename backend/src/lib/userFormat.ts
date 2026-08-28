@@ -4,6 +4,7 @@ export interface CleanUser {
   id: string;
   email: string;
   name: string | null;
+  jobRole?: string | null;
   authProvider?: string;
   isEmailVerified?: boolean;
   createdAt?: Date;
@@ -27,6 +28,7 @@ export function formatUser(user: {
   id: string;
   emailEncrypted: string;
   nameEncrypted?: string | null;
+  jobRole?: string | null;
   authProvider?: string;
   isEmailVerified?: boolean;
   createdAt?: Date;
@@ -39,6 +41,7 @@ export function formatUser(user: {
     id: user.id,
     email,
     name,
+    jobRole: user.jobRole,
     authProvider: user.authProvider,
     isEmailVerified: user.isEmailVerified,
     createdAt: user.createdAt,

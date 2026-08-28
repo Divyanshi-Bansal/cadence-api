@@ -16,6 +16,7 @@ const emailSchema = z
 
 export const signUpSchema = z.object({
   name: nameSchema,
+  jobRole: z.string().trim().max(120).optional(),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -25,6 +26,7 @@ export const forgotPasswordSchema = z.object({
 export const updateUserSchema = z
   .object({
     name: nameSchema,
+    jobRole: z.string().trim().max(120).optional(),
   })
   .refine((data) => Object.values(data).some((v) => v !== undefined), {
     message: "At least one field must be provided for update.",

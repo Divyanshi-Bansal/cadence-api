@@ -17,6 +17,7 @@ const signupSchema = z.object({
   name: z.string().min(2, "Full name is required"),
   email: z.string().email("Invalid email address"),
   password: passwordSchema,
+  jobRole: z.string().optional(),
 });
 
 const loginSchema = z.object({
@@ -83,11 +84,12 @@ function handleError(res: Response, err: unknown, label: string): void {
 
 export async function signup(req: Request, res: Response): Promise<void> {
   try {
-    const { email, password, name } = signupSchema.parse(req.body);
+    const { email, password, name, jobRole } = signupSchema.parse(req.body);
     const result = await authService.signup(
       email,
       password,
       name,
+      jobRole,
     );
 
     res.status(201).json(result);

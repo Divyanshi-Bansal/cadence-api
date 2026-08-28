@@ -7,74 +7,85 @@ import { formatUser } from "../../lib/userFormat";
 
 export function registerTaskTools(server: McpServer) {
   // 1. Create Task
+  const createTaskHandler = async ({ projectId, stageId, issueTypeId, title, description, priority, reporterId, estimatedMinutes, tags, assigneeIds }: any) => {
+    try {
+      let targetStageId = stageId;
+      if (!targetStageId) {
+        const firstStage = await prisma.boardStage.findFirst({
+          where: { projectId },
+          orderBy: { order: "asc" },
+        });
+        if (!firstStage) {
+          return {
+            content: [{ type: "text" as const, text: `Project '${projectId}' has no board stages defined.` }],
+            isError: true,
+          };
+        }
+        targetStageId = firstStage.id;
+      }
+
+      const effectiveReporterId = reporterId || process.env.CADENCE_USER_ID;
+      if (!effectiveReporterId) {
+        const fallbackUser = await prisma.user.findFirst();
+        if (!fallbackUser) {
+          return {
+            content: [{ type: "text" as const, text: "Error: reporterId parameter or CADENCE_USER_ID env var is required." }],
+            isError: true,
+          };
+        }
+      }
+
+      const reporterToUse = effectiveReporterId || (await prisma.user.findFirst())?.id!;
+
+      const task = await taskRepository.create({
+        projectId,
+        stageId: targetStageId,
+        issueTypeId,
+        title,
+        description: description ? { type: "doc" as const, content: [{ type: "paragraph" as const, content: [{ type: "text" as const, text: description }] }] } : undefined,
+        priority: priority as Priority,
+        reporterId: reporterToUse,
+        estimatedMinutes: estimatedMinutes || null,
+        tags: tags || [],
+        assigneeIds: assigneeIds || [],
+      });
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ message: "Task created successfully", task }, null, 2) }],
+      };
+    } catch (error: any) {
+      return {
+        content: [{ type: "text" as const, text: `Failed to create task: ${error.message}` }],
+        isError: true,
+      };
+    }
+  };
+
+  const createTaskSchema = {
+    projectId: z.string().describe("Project CUID"),
+    stageId: z.string().optional().describe("Board stage CUID. If omitted, uses the project's first stage (e.g. Backlog or To Do)."),
+    issueTypeId: z.string().optional().describe("Issue type CUID. If omitted, uses default 'Task' type."),
+    title: z.string().min(1).describe("Short title of the task"),
+    description: z.string().optional().describe("Task description text"),
+    priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional().default("MEDIUM").describe("Task priority level"),
+    reporterId: z.string().optional().describe("User CUID of reporter. Defaults to CADENCE_USER_ID."),
+    estimatedMinutes: z.number().optional().describe("Estimated duration in minutes"),
+    tags: z.array(z.string()).optional().describe("Tags to attach (e.g., ['Backend', 'Security'])"),
+    assigneeIds: z.array(z.string()).optional().describe("User CUIDs to assign to this task"),
+  };
+
   server.tool(
     "create_task",
     "Create a new Agile task/ticket in a project stage. Automatically generates issueKey (e.g., CAD-1, CAD-2).",
-    {
-      projectId: z.string().describe("Project CUID"),
-      stageId: z.string().optional().describe("Board stage CUID. If omitted, uses the project's first stage (e.g. Backlog or To Do)."),
-      issueTypeId: z.string().optional().describe("Issue type CUID. If omitted, uses default 'Task' type."),
-      title: z.string().min(1).describe("Short title of the task"),
-      description: z.string().optional().describe("Task description text"),
-      priority: z.enum(["LOW", "MEDIUM", "HIGH", "URGENT"]).optional().default("MEDIUM").describe("Task priority level"),
-      reporterId: z.string().optional().describe("User CUID of reporter. Defaults to CADENCE_USER_ID."),
-      estimatedMinutes: z.number().optional().describe("Estimated duration in minutes"),
-      tags: z.array(z.string()).optional().describe("Tags to attach (e.g., ['Backend', 'Security'])"),
-      assigneeIds: z.array(z.string()).optional().describe("User CUIDs to assign to this task"),
-    },
-    async ({ projectId, stageId, issueTypeId, title, description, priority, reporterId, estimatedMinutes, tags, assigneeIds }) => {
-      try {
-        let targetStageId = stageId;
-        if (!targetStageId) {
-          const firstStage = await prisma.boardStage.findFirst({
-            where: { projectId },
-            orderBy: { order: "asc" },
-          });
-          if (!firstStage) {
-            return {
-              content: [{ type: "text", text: `Project '${projectId}' has no board stages defined.` }],
-              isError: true,
-            };
-          }
-          targetStageId = firstStage.id;
-        }
+    createTaskSchema,
+    createTaskHandler
+  );
 
-        const effectiveReporterId = reporterId || process.env.CADENCE_USER_ID;
-        if (!effectiveReporterId) {
-          const fallbackUser = await prisma.user.findFirst();
-          if (!fallbackUser) {
-            return {
-              content: [{ type: "text", text: "Error: reporterId parameter or CADENCE_USER_ID env var is required." }],
-              isError: true,
-            };
-          }
-        }
-
-        const reporterToUse = effectiveReporterId || (await prisma.user.findFirst())?.id!;
-
-        const task = await taskRepository.create({
-          projectId,
-          stageId: targetStageId,
-          issueTypeId,
-          title,
-          description: description ? { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: description }] }] } : undefined,
-          priority: priority as Priority,
-          reporterId: reporterToUse,
-          estimatedMinutes: estimatedMinutes || null,
-          tags: tags || [],
-          assigneeIds: assigneeIds || [],
-        });
-
-        return {
-          content: [{ type: "text", text: JSON.stringify({ message: "Task created successfully", task }, null, 2) }],
-        };
-      } catch (error: any) {
-        return {
-          content: [{ type: "text", text: `Failed to create task: ${error.message}` }],
-          isError: true,
-        };
-      }
-    }
+  server.tool(
+    "create_ticket",
+    "Alias for create_task. Create a new Agile ticket in a project stage.",
+    createTaskSchema,
+    createTaskHandler
   );
 
   // 2. Move / Update Task Stage
@@ -89,11 +100,11 @@ export function registerTaskTools(server: McpServer) {
       try {
         const updated = await taskRepository.update(taskId, { stageId });
         return {
-          content: [{ type: "text", text: JSON.stringify({ message: "Task stage updated successfully", task: updated }, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify({ message: "Task stage updated successfully", task: updated }, null, 2) }],
         };
       } catch (error: any) {
         return {
-          content: [{ type: "text", text: `Failed to update task stage: ${error.message}` }],
+          content: [{ type: "text" as const, text: `Failed to update task stage: ${error.message}` }],
           isError: true,
         };
       }
@@ -144,11 +155,11 @@ export function registerTaskTools(server: McpServer) {
         }));
 
         return {
-          content: [{ type: "text", text: JSON.stringify(formatted, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify(formatted, null, 2) }],
         };
       } catch (error: any) {
         return {
-          content: [{ type: "text", text: `Failed to search tasks: ${error.message}` }],
+          content: [{ type: "text" as const, text: `Failed to search tasks: ${error.message}` }],
           isError: true,
         };
       }
@@ -169,7 +180,7 @@ export function registerTaskTools(server: McpServer) {
         const effectiveAuthorId = authorId || process.env.CADENCE_USER_ID || (await prisma.user.findFirst())?.id;
         if (!effectiveAuthorId) {
           return {
-            content: [{ type: "text", text: "Error: authorId parameter or CADENCE_USER_ID is required to comment." }],
+            content: [{ type: "text" as const, text: "Error: authorId parameter or CADENCE_USER_ID is required to comment." }],
             isError: true,
           };
         }
@@ -178,7 +189,7 @@ export function registerTaskTools(server: McpServer) {
           data: {
             taskId,
             userId: effectiveAuthorId,
-            content: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: content }] }] },
+            content: { type: "doc" as const, content: [{ type: "paragraph" as const, content: [{ type: "text" as const, text: content }] }] },
           },
           include: { user: true },
         });
@@ -189,11 +200,11 @@ export function registerTaskTools(server: McpServer) {
         };
 
         return {
-          content: [{ type: "text", text: JSON.stringify({ message: "Comment added successfully", comment: formattedComment }, null, 2) }],
+          content: [{ type: "text" as const, text: JSON.stringify({ message: "Comment added successfully", comment: formattedComment }, null, 2) }],
         };
       } catch (error: any) {
         return {
-          content: [{ type: "text", text: `Failed to add comment: ${error.message}` }],
+          content: [{ type: "text" as const, text: `Failed to add comment: ${error.message}` }],
           isError: true,
         };
       }
@@ -211,11 +222,11 @@ export function registerTaskTools(server: McpServer) {
       try {
         await taskRepository.delete(taskId);
         return {
-          content: [{ type: "text", text: JSON.stringify({ message: `Task ${taskId} deleted successfully.` }) }],
+          content: [{ type: "text" as const, text: JSON.stringify({ message: `Task ${taskId} deleted successfully.` }) }],
         };
       } catch (error: any) {
         return {
-          content: [{ type: "text", text: `Failed to delete task: ${error.message}` }],
+          content: [{ type: "text" as const, text: `Failed to delete task: ${error.message}` }],
           isError: true,
         };
       }
