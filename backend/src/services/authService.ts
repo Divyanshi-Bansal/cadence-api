@@ -152,6 +152,7 @@ export const authService = {
     email: string,
     password: string,
     name: string,
+    jobRole?: string,
   ): Promise<{ message: string; user: CleanUser; magicLink: string }> => {
     const existing = await userRepository.findByEmail(email);
 
@@ -174,6 +175,7 @@ export const authService = {
       email,
       passwordHash,
       name,
+      jobRole,
       authProvider: "CREDENTIALS",
       isEmailVerified: false,
     });

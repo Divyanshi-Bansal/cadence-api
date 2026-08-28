@@ -5,6 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "mcp": "ts-node src/mcp/index.ts",
+    "mcp:start": "node dist/mcp/index.js",
     "build": "tsc",
     "start": "node dist/index.js"
   },
@@ -13,6 +15,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@prisma/client": "^5.20.0",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",
@@ -26,7 +30,7 @@
     "google-auth-library": "^10.9.0",
     "jsonwebtoken": "^9.0.3",
     "nodemailer": "^9.0.3",
-    "pg": "^8.22.0",
+    "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-email": "^6.9.1",

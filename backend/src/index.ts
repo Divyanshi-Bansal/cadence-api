@@ -7,6 +7,8 @@ import userRoutes from "./routes/userRoutes";
 import projectRoutes from "./routes/projectRoutes";
 import { invitationRoutes } from "./routes/invitationRoutes";
 import stripeRoutes from "./routes/stripeRoutes";
+import apiKeyRoutes from "./routes/apiKeyRoutes";
+import mcpRoutes from "./routes/mcpRoutes";
 
 dotenv.config();
 
@@ -37,6 +39,21 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/projects", projectRoutes);
 app.use("/api/invitations", invitationRoutes);
+app.use("/api/api-keys", apiKeyRoutes);
+app.use("/api/mcp", mcpRoutes);
+
+// Global Error Handler
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  console.error("Global error caught:", err);
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    success: false,
+    error: {
+      code: err.code || "INTERNAL_SERVER_ERROR",
+      message: err.message || "An unexpected error occurred.",
+    },
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`Server running on PORT ${PORT}`);

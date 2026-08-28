@@ -13,6 +13,8 @@ model Project {
   issueTypes    IssueType[]
   tasks         Task[]
   notes         Note[]
+  taskPrefix    String   @default("CAD")
+  taskCount     Int      @default(0)
 }
 
 model ProjectMember {

@@ -1,9 +1,8 @@
 import { Request, Response } from "express";
 import Stripe from "stripe";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "../lib/prisma";
 import { getUserPlan } from "../services/subscriptionService";
 
-const prisma = new PrismaClient();
 const stripeKey = process.env.STRIPE_SECRET_KEY || "sk_test_placeholder";
 const stripe = new Stripe(stripeKey, {
   apiVersion: "2024-04-10" as any,

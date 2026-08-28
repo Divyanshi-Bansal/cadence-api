@@ -16,6 +16,8 @@ export const taskService = {
       parentTaskId?: string | null;
       dueDate?: Date | null;
       estimatedMinutes?: number | null;
+      tags?: string[];
+      subtasks?: any[];
     }
   ) => {
     // Validate target stage
@@ -28,6 +30,29 @@ export const taskService = {
       projectId,
       reporterId,
     });
+  },
+
+  bulkCreate: async (
+    projectId: string,
+    reporterId: string,
+    tasks: {
+      stageId: string;
+      issueTypeId?: string;
+      title: string;
+      description?: any;
+      priority?: any;
+      estimatedMinutes?: number | null;
+      tags?: string[];
+      subtasks?: any[];
+    }[]
+  ) => {
+    // Using a sequential loop to prevent exhausting the database connection pool (P2028 error)
+    const createdTasks = [];
+    for (const task of tasks) {
+      const created = await taskService.create(projectId, reporterId, task);
+      createdTasks.push(created);
+    }
+    return createdTasks;
   },
 
   update: async (

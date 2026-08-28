@@ -5,8 +5,10 @@ model Task {
   issueTypeId      String
   parentTaskId     String?
   title            String
+  issueKey         String?   @unique
   description      Json?
   teamLabel        String?
+  tags             String[]  @default([])
   priority         Priority  @default(MEDIUM)
   reporterId       String
   dueDate          DateTime?

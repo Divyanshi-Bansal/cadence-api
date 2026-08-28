@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { ZodError } from 'zod';
+import { prisma } from '../lib/prisma';
+import { formatUser } from '../lib/userFormat';
 import { projectService, AppError } from '../services/projectService';
 import { invitationController } from './invitationController';
 import { checkCanCreateProject } from '../services/subscriptionService';
@@ -110,5 +112,43 @@ export async function removeMember(req: Request, res: Response) {
     res.json({ success: true, message: 'Member removed from the project successfully.' });
   } catch (err) {
     handleError(res, err, 'removeMember');
+  }
+}
+
+export async function getProjectNotes(req: Request, res: Response) {
+  try {
+    const projectId = req.params.projectId as string;
+    const notes = await prisma.note.findMany({
+      where: { projectId },
+      orderBy: { updatedAt: 'desc' },
+      include: { user: true },
+    });
+
+    const formatted = notes.map((n) => ({
+      id: n.id,
+      projectId: n.projectId,
+      userId: n.userId,
+      title: n.title,
+      content: n.content,
+      createdAt: n.createdAt,
+      updatedAt: n.updatedAt,
+      user: formatUser(n.user),
+    }));
+
+    res.json(formatted);
+  } catch (err) {
+    handleError(res, err, 'getProjectNotes');
+  }
+}
+
+export async function deleteProjectNote(req: Request, res: Response) {
+  try {
+    const noteId = req.params.noteId as string;
+    await prisma.note.delete({
+      where: { id: noteId },
+    });
+    res.json({ success: true, message: 'Note deleted successfully.' });
+  } catch (err) {
+    handleError(res, err, 'deleteProjectNote');
   }
 }

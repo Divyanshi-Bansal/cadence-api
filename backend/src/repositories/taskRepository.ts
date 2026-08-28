@@ -27,6 +27,8 @@ export const taskRepository = {
     dueDate?: Date | null;
     estimatedMinutes?: number | null;
     assigneeIds?: string[];
+    tags?: string[];
+    subtasks?: any[];
   }) => {
     let issueTypeId = data.issueTypeId;
     
@@ -45,19 +47,77 @@ export const taskRepository = {
     }
 
     return prisma.$transaction(async (tx) => {
+      let totalTasksToCreate = 1;
+      if (data.subtasks && data.subtasks.length > 0) {
+        totalTasksToCreate += data.subtasks.length;
+      }
+
+      const project = await tx.project.findUnique({
+        where: { id: data.projectId },
+      });
+
+      if (!project) {
+        throw new Error(`Project ${data.projectId} not found.`);
+      }
+
+      const existingTasks = await tx.task.findMany({
+        where: { issueKey: { startsWith: `${project.taskPrefix}-` } },
+        select: { issueKey: true },
+      });
+
+      let maxNum = project.taskCount || 0;
+      for (const t of existingTasks) {
+        if (t.issueKey) {
+          const parts = t.issueKey.split("-");
+          const num = parseInt(parts[parts.length - 1], 10);
+          if (!isNaN(num) && num > maxNum) {
+            maxNum = num;
+          }
+        }
+      }
+
+      const updatedProject = await tx.project.update({
+        where: { id: data.projectId },
+        data: { taskCount: maxNum + totalTasksToCreate },
+      });
+
+      let nextId = maxNum + 1;
+      const parentIssueKey = `${updatedProject.taskPrefix}-${nextId++}`;
+
+      const createData: any = {
+        projectId: data.projectId,
+        stageId: data.stageId,
+        issueTypeId: issueTypeId!,
+        title: data.title,
+        issueKey: parentIssueKey,
+        description: data.description || null,
+        priority: data.priority || 'MEDIUM',
+        reporterId: data.reporterId,
+        parentTaskId: data.parentTaskId || null,
+        dueDate: data.dueDate || null,
+        estimatedMinutes: data.estimatedMinutes || null,
+        tags: data.tags || [],
+      };
+
+      if (data.subtasks && data.subtasks.length > 0) {
+        createData.subtasks = {
+          create: data.subtasks.map((st: any) => ({
+            projectId: data.projectId,
+            stageId: st.stageId || data.stageId,
+            issueTypeId: st.issueTypeId || issueTypeId,
+            title: st.title,
+            issueKey: `${project.taskPrefix}-${nextId++}`,
+            description: st.description || null,
+            priority: st.priority || 'MEDIUM',
+            reporterId: data.reporterId,
+            estimatedMinutes: st.estimatedMinutes || null,
+            tags: st.tags || [],
+          }))
+        };
+      }
+
       const task = await tx.task.create({
-        data: {
-          projectId: data.projectId,
-          stageId: data.stageId,
-          issueTypeId: issueTypeId!,
-          title: data.title,
-          description: data.description || null,
-          priority: data.priority || 'MEDIUM',
-          reporterId: data.reporterId,
-          parentTaskId: data.parentTaskId || null,
-          dueDate: data.dueDate || null,
-          estimatedMinutes: data.estimatedMinutes || null,
-        },
+        data: createData,
       });
 
       if (data.assigneeIds && data.assigneeIds.length > 0) {
@@ -104,7 +164,6 @@ export const taskRepository = {
         data: scalarFields,
       });
 
-      // If parent stage changes, cascade stage update to all its subtasks
       if (scalarFields.stageId) {
         await tx.task.updateMany({
           where: { parentTaskId: taskId },
