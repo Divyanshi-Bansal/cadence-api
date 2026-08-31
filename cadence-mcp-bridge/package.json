@@ -1,0 +1,17 @@
+{
+  "name": "cadence-mcp",
+  "version": "1.0.1",
+  "description": "NPM Bridge for Cadence MCP Server to allow Claude Desktop connections",
+  "main": "index.js",
+  "bin": {
+    "cadence-mcp": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Fiftyfive",
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "latest"
+  }
+}
