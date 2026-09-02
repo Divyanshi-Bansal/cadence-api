@@ -5,7 +5,7 @@ const sse_js_1 = require("@modelcontextprotocol/sdk/client/sse.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 
 // Set your production AWS EC2 URL here before publishing!
-const PRODUCTION_URL = process.env.CADENCE_API_URL || "http://13.233.146.11:4000/api/mcp/sse";
+const PRODUCTION_URL = process.env.CADENCE_API_URL || "http://3.108.212.50:4000/api/mcp/sse";
 
 async function main() {
     const API_KEY = process.env.CADENCE_API_KEY;
