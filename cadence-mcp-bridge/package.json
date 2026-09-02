@@ -1,6 +1,6 @@
 {
   "name": "cadence-mcp",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "NPM Bridge for Cadence MCP Server to allow Claude Desktop connections",
   "main": "index.js",
   "bin": {
