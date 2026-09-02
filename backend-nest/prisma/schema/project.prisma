@@ -1,0 +1,30 @@
+model Project {
+  id            String   @id @default(cuid())
+  name          String
+  projectType   String?
+  description   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  archivedAt    DateTime?
+  members       ProjectMember[]
+  status        ProjectStatus   @default(ACTIVE)
+  invitations   Invitation[]
+  stages        BoardStage[]
+  issueTypes    IssueType[]
+  tasks         Task[]
+  notes         Note[]
+  taskPrefix    String   @default("CAD")
+  taskCount     Int      @default(0)
+}
+
+model ProjectMember {
+  id        String   @id @default(cuid())
+  projectId String
+  userId    String
+  joinedAt  DateTime @default(now())
+  role      ProjectRole @default(MEMBER)
+  user      User     @relation(fields:[userId], references:[id], onDelete: SetNull)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+}
