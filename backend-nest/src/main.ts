@@ -1,7 +1,9 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-
 import cookieParser from 'cookie-parser';
+import * as dotenv from 'dotenv';
+
+dotenv.config();
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,6 +18,8 @@ async function bootstrap() {
     credentials: true,
   });
 
-  await app.listen(process.env.PORT ?? 4001);
+  const port = Number(process.env.PORT) || 4000;
+  await app.listen(port, '0.0.0.0');
+  console.log(`[NestJS] Cadence API Server is running on http://localhost:${port}/api`);
 }
 bootstrap();

@@ -8,10 +8,13 @@ import {
   Put,
   HttpCode,
   HttpStatus,
+  UseGuards,
 } from '@nestjs/common';
 import { StagesService } from './stages.service';
 import { CreateStageDto, UpdateStageDto, ReorderStagesDto } from './stages.dto';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('projects/:projectId/stages')
 export class StagesController {
   constructor(private readonly stagesService: StagesService) {}

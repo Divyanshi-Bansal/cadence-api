@@ -12,6 +12,7 @@ import { CommentsModule } from './comments/comments.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { ApikeysModule } from './apikeys/apikeys.module';
 import { AiModule } from './ai/ai.module';
+import { McpModule } from './mcp/mcp.module';
 
 @Module({
   imports: [
@@ -25,7 +26,8 @@ import { AiModule } from './ai/ai.module';
     CommentsModule,
     InvitationsModule,
     ApikeysModule,
-    AiModule
+    AiModule,
+    McpModule
   ],
   controllers: [AppController],
   providers: [AppService],

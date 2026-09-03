@@ -6,6 +6,7 @@ import {
   Body,
   Req,
   UsePipes,
+  UseGuards,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { ZodValidationPipe } from 'nestjs-zod';
@@ -15,6 +16,7 @@ import {
   updateUserSchema,
 } from '../validations/userValidation';
 import { Request } from 'express';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 export class ForgotPasswordDto extends createZodDto(forgotPasswordSchema) {}
 export class UpdateProfileDto extends createZodDto(updateUserSchema) {}
@@ -29,6 +31,7 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Get('profile')
+  @UseGuards(JwtAuthGuard)
   async getProfile(@Req() req: AuthenticatedRequest) {
     const user = await this.usersService.getProfile(req.userId);
     return { user };
@@ -43,6 +46,7 @@ export class UsersController {
   }
 
   @Patch('profile')
+  @UseGuards(JwtAuthGuard)
   async updateProfile(
     @Req() req: AuthenticatedRequest,
     @Body() dto: UpdateProfileDto,
