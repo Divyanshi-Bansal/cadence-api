@@ -62,16 +62,16 @@ export class ProjectsService {
 
     const formattedTasks = project.tasks.map((task: any) => ({
       ...task,
-      assignees: task.assignees.map((a: any) => ({
+      assignees: task.assignees?.map((a: any) => ({
         ...a,
         user: a.user ? formatUser(a.user) : null,
-      })),
+      })) || [],
       subtasks: task.subtasks?.map((st: any) => ({
         ...st,
         assignees: st.assignees?.map((a: any) => ({
           ...a,
           user: a.user ? formatUser(a.user) : null,
-        })),
+        })) || [],
       })) || [],
     }));
 
