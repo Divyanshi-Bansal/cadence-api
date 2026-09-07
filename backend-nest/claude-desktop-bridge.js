@@ -1,21 +1,18 @@
-#!/usr/bin/env node
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const sse_js_1 = require("@modelcontextprotocol/sdk/client/sse.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 
-// Set your production AWS EC2 URL here before publishing!
-const PRODUCTION_URL = process.env.CADENCE_API_URL || "http://3.108.212.50:4000/api/mcp/sse";
-
 async function main() {
     const API_KEY = process.env.CADENCE_API_KEY;
     if (!API_KEY) {
-        console.error("Missing CADENCE_API_KEY environment variable in Claude Desktop config!");
+        console.error("Missing CADENCE_API_KEY environment variable");
         process.exit(1);
     }
     
-    // Connect to remote Cadence backend
-    const sseTransport = new sse_js_1.SSEClientTransport(new URL(PRODUCTION_URL), {
+    // Connect to local Cadence backend
+    const targetUrl = process.env.CADENCE_MCP_URL || "http://localhost:4001/api/mcp/sse";
+    const sseTransport = new sse_js_1.SSEClientTransport(new URL(targetUrl), {
         eventSourceInit: {
             headers: { Authorization: `Bearer ${API_KEY}` },
         },
