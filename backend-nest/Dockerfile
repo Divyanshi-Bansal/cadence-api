@@ -14,12 +14,13 @@ COPY prisma ./prisma/
 RUN npm ci
 
 # Copy source code
-COPY tsconfig.json ./
+COPY tsconfig*.json ./
+COPY nest-cli.json ./
 COPY src ./src/
 
 # Generate Prisma client and build TypeScript
-RUN npx prisma generate
-RUN npm run build
+RUN npx prisma generate --schema=./prisma/schema
+RUN NODE_OPTIONS="--max-old-space-size=1536" npm run build
 
 # Stage 2: Production Run
 FROM node:20-slim
