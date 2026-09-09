@@ -8,6 +8,7 @@ import { encryptDeterministic, hashToken } from '../lib/crypto';
 import { formatUser, CleanUser } from '../lib/userFormat';
 import { userRepository } from '../repositories/userRepository';
 import { sendMagicLinkEmail } from '../utils/emailService';
+import { RedisService } from '../redis/redis.service';
 
 export class AppError extends HttpException {
   constructor(message: string, statusCode: number = 400) {
@@ -36,8 +37,21 @@ export interface AuthResult {
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly redisService: RedisService
+  ) {}
 
+  /**
+   * Q: Why don't we store refresh tokens in the Postgres DB anymore?
+   * A: If an app has 10,000 active users, and they refresh their tabs, the DB would get slammed
+   *    with 10,000 queries just to check if their token is valid. Redis is an in-memory datastore 
+   *    that handles this instantly without touching the DB.
+   * 
+   * Q: Why set a TTL? 
+   * A: Postgres requires us to run a cron-job to delete expired tokens. Redis natively deletes 
+   *    keys when the TTL (Time To Live) expires, saving us computing resources.
+   */
   async generateTokenPair(userId: string): Promise<TokenPair> {
     const accessSecret = process.env.JWT_ACCESS_SECRET;
     if (!accessSecret) {
@@ -50,16 +64,9 @@ export class AuthService {
     const refreshToken = crypto.randomBytes(64).toString('hex');
     const tokenHashValue = hashToken(refreshToken);
 
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + 30);
-
-    await this.prisma.refreshToken.create({
-      data: {
-        userId,
-        tokenHash: tokenHashValue,
-        expiresAt,
-      },
-    });
+    // Save refresh token in Redis with a 30-day TTL (2592000 seconds)
+    const ttlSeconds = 30 * 24 * 60 * 60;
+    await this.redisService.set(tokenHashValue, userId, ttlSeconds);
 
     return { accessToken, refreshToken };
   }
@@ -191,41 +198,48 @@ export class AuthService {
     return user;
   }
 
+  /**
+   * Q: Why are we updating/deleting the refresh token before it expires?
+   * A: This is called "Refresh Token Rotation". It's a critical security measure. 
+   *    If a hacker steals a user's 30-day refresh token, they could theoretically stay logged in 
+   *    forever. By rotating (deleting and replacing) the refresh token EVERY time it is used to 
+   *    generate a new short-lived access token, we ensure that a stolen refresh token can only 
+   *    be used ONCE before it becomes invalid.
+   */
   async refresh(refreshToken: string): Promise<AuthResult> {
     const tokenHashValue = hashToken(refreshToken);
-    const storedToken = await this.prisma.refreshToken.findUnique({
-      where: { tokenHash: tokenHashValue },
-    });
+    const userId = await this.redisService.get(tokenHashValue);
 
-    if (!storedToken || storedToken.revokedAt !== null || storedToken.expiresAt < new Date()) {
+    if (!userId) {
       throw new AppError('Invalid or expired refresh token', 401);
     }
 
-    await this.prisma.refreshToken.update({
-      where: { id: storedToken.id },
-      data: { revokedAt: new Date() },
-    });
+    // Revoke the old refresh token by deleting it from Redis
+    await this.redisService.del(tokenHashValue);
 
-    const user = await userRepository.findByUserId(storedToken.userId);
+    const user = await userRepository.findByUserId(userId);
     if (!user) {
       throw new AppError('User not found', 404);
     }
 
-    const { accessToken, refreshToken: newRefreshToken } = await this.generateTokenPair(storedToken.userId);
+    const { accessToken, refreshToken: newRefreshToken } = await this.generateTokenPair(userId);
 
     return { user, accessToken, refreshToken: newRefreshToken };
   }
 
+  /**
+   * Q: Why delete it on logout if it has a 30-day TTL?
+   * A: The TTL just means it will auto-delete AFTER 30 days. If the user explicitly clicks 
+   *    "Logout" today, we must immediately revoke their access so their session cannot be 
+   *    hijacked during the remaining 29 days.
+   */
   async logout(refreshToken: string): Promise<void> {
     if (!refreshToken) return;
     const tokenHashValue = hashToken(refreshToken);
     try {
-      await this.prisma.refreshToken.updateMany({
-        where: { tokenHash: tokenHashValue, revokedAt: null },
-        data: { revokedAt: new Date() },
-      });
+      await this.redisService.del(tokenHashValue);
     } catch (err) {
-      // Ignore if not found
+      // Ignore if not found or Redis fails
     }
   }
 

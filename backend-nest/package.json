@@ -31,6 +31,7 @@
     "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",
     "google-auth-library": "^10.9.1",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "nestjs-zod": "^5.5.0",
     "nodemailer": "^9.1.0",

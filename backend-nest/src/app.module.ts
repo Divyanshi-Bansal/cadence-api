@@ -13,6 +13,7 @@ import { InvitationsModule } from './invitations/invitations.module';
 import { ApikeysModule } from './apikeys/apikeys.module';
 import { AiModule } from './ai/ai.module';
 import { McpModule } from './mcp/mcp.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
   imports: [
@@ -27,7 +28,8 @@ import { McpModule } from './mcp/mcp.module';
     InvitationsModule,
     ApikeysModule,
     AiModule,
-    McpModule
+    McpModule,
+    RedisModule
   ],
   controllers: [AppController],
   providers: [AppService],
