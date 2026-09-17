@@ -1,4 +1,4 @@
-import { Controller, Post, Put, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
+import { Controller, Post, Put, Patch, Delete, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto, UpdateTaskDto } from './dto/task.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -23,16 +23,29 @@ export class TasksController {
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
     @Body() data: UpdateTaskDto,
+    @Req() req: Request,
   ) {
-    return this.tasksService.update(projectId, taskId, data);
+    return this.tasksService.update(projectId, taskId, data, req.userId);
+  }
+
+  @Patch(':taskId')
+  async patchTask(
+    @Param('projectId') projectId: string,
+    @Param('taskId') taskId: string,
+    @Body() data: UpdateTaskDto,
+    @Req() req: Request,
+  ) {
+    return this.tasksService.update(projectId, taskId, data, req.userId);
   }
 
   @Delete(':taskId')
   async deleteTask(
     @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
+    @Req() req: Request,
   ) {
-    await this.tasksService.delete(projectId, taskId);
+    await this.tasksService.delete(projectId, taskId, req.userId);
     return { success: true, message: 'Task deleted successfully.' };
   }
 }
+

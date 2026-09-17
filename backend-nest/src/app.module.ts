@@ -13,6 +13,7 @@ import { InvitationsModule } from './invitations/invitations.module';
 import { ApikeysModule } from './apikeys/apikeys.module';
 import { AiModule } from './ai/ai.module';
 import { McpModule } from './mcp/mcp.module';
+import { EventsModule } from './events/events.module';
 
 @Module({
   imports: [
@@ -27,9 +28,11 @@ import { McpModule } from './mcp/mcp.module';
     InvitationsModule,
     ApikeysModule,
     AiModule,
-    McpModule
+    McpModule,
+    EventsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+

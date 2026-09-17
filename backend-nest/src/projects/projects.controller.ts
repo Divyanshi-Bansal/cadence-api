@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Put,
+  Patch,
   Delete,
   Body,
   Param,
@@ -76,6 +77,15 @@ export class ProjectsController {
   }
 
   // @UseGuards(ProjectRoleGuard)
+  @Patch(':projectId')
+  async patchProject(
+    @Param('projectId') projectId: string,
+    @Body() body: UpdateProjectDto,
+  ) {
+    return this.projectsService.update(projectId, body);
+  }
+
+  // @UseGuards(ProjectRoleGuard)
   @Delete(':projectId')
   async deleteProject(@Param('projectId') projectId: string) {
     await this.projectsService.delete(projectId);
@@ -105,6 +115,17 @@ export class ProjectsController {
   ) {
     return this.projectsService.updateMemberRole(projectId, userId, body.role);
   }
+
+  // @UseGuards(ProjectRoleGuard)
+  @Patch(':projectId/members/:userId')
+  async patchMemberRole(
+    @Param('projectId') projectId: string,
+    @Param('userId') userId: string,
+    @Body() body: UpdateMemberRoleDto,
+  ) {
+    return this.projectsService.updateMemberRole(projectId, userId, body.role);
+  }
+
 
   // @UseGuards(ProjectRoleGuard)
   @Delete(':projectId/members/:userId')
