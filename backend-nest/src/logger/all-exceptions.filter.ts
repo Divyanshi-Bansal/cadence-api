@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
+import * as Sentry from '@sentry/nestjs';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
@@ -42,6 +43,20 @@ export class AllExceptionsFilter implements ExceptionFilter {
         `${request.method} ${request.url} ${status} - Error: ${JSON.stringify(message)}`,
         stack,
       );
+
+      // Report 500+ server errors to Sentry
+      if (process.env.SENTRY_DSN) {
+        Sentry.captureException(exception, {
+          tags: {
+            path: request.url,
+            method: request.method,
+          },
+          extra: {
+            statusCode: status,
+            body: request.body,
+          },
+        });
+      }
     } else {
       this.logger.warn(
         `${request.method} ${request.url} ${status} - Client Warning: ${JSON.stringify(message)}`,

@@ -9,4 +9,9 @@ export class AppController {
   getHello(): string {
     return this.appService.getHello();
   }
+
+  @Get('debug-sentry')
+  debugSentry() {
+    throw new Error('Sentry Test Error: Production Observability Verification');
+  }
 }

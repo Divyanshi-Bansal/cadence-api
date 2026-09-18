@@ -1,3 +1,4 @@
+import './instrument';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
@@ -9,6 +10,7 @@ import { AllExceptionsFilter } from './logger/all-exceptions.filter';
 dotenv.config();
 
 async function bootstrap() {
+
   const logger = WinstonModule.createLogger(winstonConfig);
   const app = await NestFactory.create(AppModule, { logger });
 

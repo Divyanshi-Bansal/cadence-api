@@ -30,6 +30,8 @@
     "@prisma/client": "^6.19.3",
     "@react-email/components": "^1.0.12",
     "@react-email/render": "^2.1.0",
+    "@sentry/nestjs": "^10.75.0",
+    "@sentry/profiling-node": "^10.75.0",
     "argon2": "^0.45.1",
     "cookie-parser": "^1.4.7",
     "google-auth-library": "^10.9.1",
@@ -46,6 +48,7 @@
     "socket.io": "^4.8.3",
     "stripe": "^22.6.0",
     "winston": "^3.19.0",
+    "winston-cloudwatch": "^6.3.0",
     "zod": "^4.5.4"
   },
   "devDependencies": {
