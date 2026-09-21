@@ -82,7 +82,7 @@ export const taskService = {
       }
     }
 
-    return taskRepository.update(taskId, data);
+    return taskRepository.update(task.id, data);
   },
 
   delete: async (projectId: string, taskId: string) => {
@@ -90,6 +90,6 @@ export const taskService = {
     if (!task || task.projectId !== projectId) {
       throw new AppError('Task not found in this project.', 404);
     }
-    return taskRepository.delete(taskId);
+    return taskRepository.delete(task.id);
   },
 };

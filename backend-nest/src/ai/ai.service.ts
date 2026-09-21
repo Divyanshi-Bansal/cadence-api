@@ -4,6 +4,8 @@ import { taskRepository } from '../repositories/taskRepository';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { mcpChatService } from './mcpChat.service';
 
+import * as Sentry from '@sentry/nestjs';
+
 export interface GeneratedTask {
   title: string;
   description: string;
@@ -24,9 +26,17 @@ export class AiService {
   }
 
   async processUserMessage(projectId: string, userId: string, message: string) {
-    // Delegating to the complex mcpChatService. If this needs full porting, it should be done separately
-    // as it involves 1000+ lines of MCP server tool definitions.
-    return mcpChatService.processUserMessage(projectId, userId, message);
+    try {
+      return await mcpChatService.processUserMessage(projectId, userId, message);
+    } catch (error) {
+      if (process.env.SENTRY_DSN) {
+        Sentry.captureException(error, {
+          tags: { feature: 'ai-copilot', projectId },
+          extra: { userId, message },
+        });
+      }
+      throw error;
+    }
   }
 
   async generateTicketsFromBrief(brief: string): Promise<GeneratedTask[]> {

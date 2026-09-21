@@ -34,6 +34,7 @@ export class CommentsController {
 
   @Post()
   async createComment(
+    @Param('projectId') projectId: string,
     @Param('taskId') taskId: string,
     @Req() req: AuthenticatedRequest,
     @Body() dto: CreateCommentDto,
@@ -42,12 +43,14 @@ export class CommentsController {
       taskId,
       req.userId,
       dto,
+      projectId,
     );
     return { comment };
   }
 
   @Patch(':commentId')
   async updateComment(
+    @Param('projectId') projectId: string,
     @Param('commentId') commentId: string,
     @Req() req: AuthenticatedRequest,
     @Body() dto: UpdateCommentDto,
@@ -56,15 +59,18 @@ export class CommentsController {
       commentId,
       req.userId,
       dto,
+      projectId,
     );
     return { comment };
   }
 
   @Delete(':commentId')
   async deleteComment(
+    @Param('projectId') projectId: string,
     @Param('commentId') commentId: string,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.commentsService.deleteComment(commentId, req.userId);
+    return this.commentsService.deleteComment(commentId, req.userId, projectId);
   }
 }
+
