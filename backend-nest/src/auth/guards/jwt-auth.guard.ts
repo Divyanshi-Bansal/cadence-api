@@ -10,7 +10,14 @@ declare global {
     }
   }
 }
-
+/**
+ * Q: Why do we use Guards (@UseGuards) instead of standard Express Middleware?
+ * A: Middleware is "dumb" - it only knows about the Request and Response objects. 
+ *    It doesn't know WHICH route handler is going to be executed next.
+ *    Guards have access to the `ExecutionContext`. This means a Guard knows exactly 
+ *    what Controller and Method is about to be called, allowing for much more powerful, 
+ *    context-aware security (like checking if the route has specific @Roles() metadata attached).
+ */
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {

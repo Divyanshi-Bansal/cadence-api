@@ -26,6 +26,24 @@ export interface InAppAiChatResult {
   data?: any;
 }
 
+/**
+ * ==========================================
+ * 🤖 MCP (Model Context Protocol) Chat Service
+ * ==========================================
+ * 
+ * Q: Why do we have a systemPrompt and custom rules?
+ * A: An AI model (Gemini/Claude) is just a text generator. To make it an "Agent" that can
+ *    actually manage our project, we have to:
+ *    1. Give it the current context (Projects, Stages, Members, Tasks) in the systemPrompt.
+ *    2. Give it a list of "Tools" (functions) it is allowed to call.
+ *    3. Give it strict rules on HOW to behave (e.g., "NEVER output raw internal IDs").
+ * 
+ * Q: Is this how MCP works behind the scenes?
+ * A: Yes! MCP is essentially a standard for defining these Tools and routing the AI's 
+ *    "Function Call" requests to actual backend database logic. 
+ *    When the AI decides to "create_task", it returns a JSON object. This service intercepts 
+ *    that JSON, executes the Prisma DB query, and returns the result to the user.
+ */
 export const mcpChatService = {
   async processUserMessage(
     projectId: string,
@@ -428,7 +446,16 @@ CRITICAL RULES:
     let actionResultText = '';
     let executedData: any = null;
 
+    /**
+     * ==========================================
+     * 🛠️ MAIN ACTION EXECUTIONS (Tool Handlers)
+     * ==========================================
+     * Below are the handlers for when the AI decides to call a specific tool.
+     * We map the AI's requested arguments to actual database operations.
+     */
+
     if (call.name === 'create_task') {
+      // Action: Creates a new ticket in the DB
       const defaultStage = project.stages[0];
       let targetStageId = defaultStage.id;
       let targetStageName = defaultStage.name;
@@ -495,6 +522,7 @@ CRITICAL RULES:
       actionResultText = `Task '${created.title}' (${created.issueKey}) created in stage '${targetStageName}' with ${created.priority} priority${assigneeNotice}.`;
       executedData = created;
     } else if (call.name === 'update_task') {
+      // Action: Updates an existing ticket's attributes
       const targetTask = project.tasks.find(
         (t) => t.id === args.taskIdOrKey || t.issueKey?.toLowerCase() === args.taskIdOrKey.toLowerCase()
       );
@@ -591,6 +619,7 @@ CRITICAL RULES:
         }
       }
     } else if (call.name === 'update_task_stage') {
+      // Action: Moves a single task to a different Kanban column
       const targetTask = project.tasks.find(
         (t) => t.id === args.taskIdOrKey || t.issueKey?.toLowerCase() === args.taskIdOrKey.toLowerCase()
       );
@@ -611,6 +640,7 @@ CRITICAL RULES:
         }
       }
     } else if (call.name === 'bulk_move_tasks') {
+      // Action: Moves all tasks from one column to another
       const sourceStage = project.stages.find(
         (s) => s.name.toLowerCase() === args.sourceStageNameOrId.toLowerCase() || s.id === args.sourceStageNameOrId
       );

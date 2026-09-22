@@ -143,7 +143,7 @@ export const taskRepository = {
   },
 
   update: async (
-    taskId: string,
+    idOrKey: string,
     data: {
       stageId?: string;
       issueTypeId?: string;
@@ -156,6 +156,15 @@ export const taskRepository = {
       assigneeIds?: string[];
     }
   ) => {
+    let taskId = idOrKey;
+    const existing = await prisma.task.findFirst({
+      where: { OR: [{ id: idOrKey }, { issueKey: idOrKey }] },
+      select: { id: true },
+    });
+    if (existing) {
+      taskId = existing.id;
+    }
+
     const { assigneeIds, ...scalarFields } = data;
 
     return prisma.$transaction(async (tx) => {
@@ -199,7 +208,16 @@ export const taskRepository = {
     });
   },
 
-  delete: async (taskId: string) => {
+  delete: async (idOrKey: string) => {
+    let taskId = idOrKey;
+    const existing = await prisma.task.findFirst({
+      where: { OR: [{ id: idOrKey }, { issueKey: idOrKey }] },
+      select: { id: true },
+    });
+    if (existing) {
+      taskId = existing.id;
+    }
+
     return prisma.$transaction(async (tx) => {
       const getAllChildIds = async (parentIds: string[]): Promise<string[]> => {
         if (parentIds.length === 0) return [];
@@ -226,15 +244,27 @@ export const taskRepository = {
     });
   },
 
-  findById: async (taskId: string) => {
-    const task = await prisma.task.findUnique({
-      where: { id: taskId },
+  findById: async (idOrKey: string) => {
+    let task = await prisma.task.findUnique({
+      where: { id: idOrKey },
       include: {
         assignees: { include: { user: true } },
         subtasks: { include: { assignees: { include: { user: true } } } },
         parent: true,
       },
     });
+
+    if (!task) {
+      task = await prisma.task.findUnique({
+        where: { issueKey: idOrKey },
+        include: {
+          assignees: { include: { user: true } },
+          subtasks: { include: { assignees: { include: { user: true } } } },
+          parent: true,
+        },
+      });
+    }
+
     return formatTask(task);
   },
 };

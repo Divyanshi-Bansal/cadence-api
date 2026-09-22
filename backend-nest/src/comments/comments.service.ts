@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { formatUser } from '../lib/userFormat';
 import { CreateCommentDto, UpdateCommentDto } from './comments.dto';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class CommentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventsGateway: EventsGateway,
+  ) {}
 
   private formatComment(c: any) {
     let rawContent = c.content;
@@ -34,7 +38,7 @@ export class CommentsService {
     return comments.map((c) => this.formatComment(c));
   }
 
-  async createComment(taskId: string, userId: string, dto: CreateCommentDto) {
+  async createComment(taskId: string, userId: string, dto: CreateCommentDto, projectId?: string) {
     if (dto.replyToId) {
       const parentComment = await this.prisma.comment.findUnique({
         where: { id: dto.replyToId },
@@ -54,10 +58,21 @@ export class CommentsService {
       include: { user: true },
     });
 
-    return this.formatComment(comment);
+    const formatted = this.formatComment(comment);
+
+    if (projectId) {
+      this.eventsGateway.broadcastToProject(projectId, 'comment:changed', {
+        action: 'CREATE',
+        taskId,
+        comment: formatted,
+        userId,
+      });
+    }
+
+    return formatted;
   }
 
-  async updateComment(commentId: string, userId: string, dto: UpdateCommentDto) {
+  async updateComment(commentId: string, userId: string, dto: UpdateCommentDto, projectId?: string) {
     const existing = await this.prisma.comment.findUnique({
       where: { id: commentId },
     });
@@ -76,7 +91,18 @@ export class CommentsService {
       include: { user: true },
     });
 
-    return this.formatComment(updated);
+    const formatted = this.formatComment(updated);
+
+    if (projectId) {
+      this.eventsGateway.broadcastToProject(projectId, 'comment:changed', {
+        action: 'UPDATE',
+        taskId: existing.taskId,
+        comment: formatted,
+        userId,
+      });
+    }
+
+    return formatted;
   }
 
   private async getAllDescendantCommentIds(commentId: string): Promise<string[]> {
@@ -94,7 +120,7 @@ export class CommentsService {
     return ids;
   }
 
-  async deleteComment(commentId: string, userId: string) {
+  async deleteComment(commentId: string, userId: string, projectId?: string) {
     const existing = await this.prisma.comment.findUnique({
       where: { id: commentId },
     });
@@ -114,6 +140,16 @@ export class CommentsService {
       where: { id: { in: idsToDelete } },
     });
 
+    if (projectId) {
+      this.eventsGateway.broadcastToProject(projectId, 'comment:changed', {
+        action: 'DELETE',
+        taskId: existing.taskId,
+        deletedIds: idsToDelete,
+        userId,
+      });
+    }
+
     return { success: true, message: 'Comment and nested replies deleted', deletedIds: idsToDelete };
   }
 }
+

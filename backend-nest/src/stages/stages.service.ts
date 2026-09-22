@@ -5,12 +5,16 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStageDto, UpdateStageDto, ReorderStagesDto } from './stages.dto';
+import { EventsGateway } from '../events/events.gateway';
 
 @Injectable()
 export class StagesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly eventsGateway: EventsGateway,
+  ) {}
 
-  async create(projectId: string, dto: CreateStageDto) {
+  async create(projectId: string, dto: CreateStageDto, userId?: string) {
     const agg = await this.prisma.boardStage.aggregate({
       where: { projectId },
       _max: { order: true },
@@ -18,16 +22,25 @@ export class StagesService {
     const maxOrder = agg._max.order ?? -1;
     const newOrder = maxOrder + 1;
 
-    return this.prisma.boardStage.create({
+    const stage = await this.prisma.boardStage.create({
       data: {
         projectId,
         name: dto.name,
         order: newOrder,
       },
     });
+
+    this.eventsGateway.broadcastToProject(projectId, 'stage:changed', {
+      action: 'CREATE',
+      stageId: stage.id,
+      stage,
+      userId,
+    });
+
+    return stage;
   }
 
-  async update(projectId: string, stageId: string, dto: UpdateStageDto) {
+  async update(projectId: string, stageId: string, dto: UpdateStageDto, userId?: string) {
     const stage = await this.prisma.boardStage.findUnique({
       where: { id: stageId },
     });
@@ -36,13 +49,22 @@ export class StagesService {
       throw new NotFoundException('Column not found in this project.');
     }
     
-    return this.prisma.boardStage.update({
+    const updatedStage = await this.prisma.boardStage.update({
       where: { id: stageId },
       data: dto,
     });
+
+    this.eventsGateway.broadcastToProject(projectId, 'stage:changed', {
+      action: 'UPDATE',
+      stageId: updatedStage.id,
+      stage: updatedStage,
+      userId,
+    });
+
+    return updatedStage;
   }
 
-  async delete(projectId: string, stageId: string) {
+  async delete(projectId: string, stageId: string, userId?: string) {
     const stage = await this.prisma.boardStage.findUnique({
       where: { id: stageId },
     });
@@ -51,12 +73,20 @@ export class StagesService {
       throw new NotFoundException('Column not found in this project.');
     }
     
-    return this.prisma.boardStage.delete({
+    const result = await this.prisma.boardStage.delete({
       where: { id: stageId },
     });
+
+    this.eventsGateway.broadcastToProject(projectId, 'stage:changed', {
+      action: 'DELETE',
+      stageId,
+      userId,
+    });
+
+    return result;
   }
 
-  async reorder(projectId: string, dto: ReorderStagesDto) {
+  async reorder(projectId: string, dto: ReorderStagesDto, userId?: string) {
     for (const item of dto.stages) {
       const stage = await this.prisma.boardStage.findUnique({
         where: { id: item.id },
@@ -68,7 +98,7 @@ export class StagesService {
       }
     }
 
-    return this.prisma.$transaction(
+    const result = await this.prisma.$transaction(
       dto.stages.map((so) =>
         this.prisma.boardStage.update({
           where: { id: so.id, projectId },
@@ -76,5 +106,14 @@ export class StagesService {
         }),
       ),
     );
+
+    this.eventsGateway.broadcastToProject(projectId, 'stage:changed', {
+      action: 'REORDER',
+      stages: dto.stages,
+      userId,
+    });
+
+    return result;
   }
 }
+
