@@ -61,10 +61,11 @@ export class AuthService {
     const expiresIn = (process.env.JWT_ACCESS_EXPIRES_IN || '15m') as any;
     const accessToken = jwt.sign({ sub: userId }, accessSecret, { expiresIn });
 
-    const refreshToken = crypto.randomBytes(64).toString('hex');
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || accessSecret;
+    const refreshToken = jwt.sign({ sub: userId }, refreshSecret, { expiresIn: '30d' });
     const tokenHashValue = hashToken(refreshToken);
 
-    // Save refresh token in Redis with a 30-day TTL (2592000 seconds)
+    // Save refresh token hash in Redis with a 30-day TTL (2592000 seconds)
     const ttlSeconds = 30 * 24 * 60 * 60;
     await this.redisService.set(tokenHashValue, userId, ttlSeconds);
 
@@ -207,11 +208,23 @@ export class AuthService {
    *    be used ONCE before it becomes invalid.
    */
   async refresh(refreshToken: string): Promise<AuthResult> {
+    const accessSecret = process.env.JWT_ACCESS_SECRET;
+    const refreshSecret = process.env.JWT_REFRESH_SECRET || accessSecret;
+    if (!refreshSecret) {
+      throw new Error('JWT_REFRESH_SECRET variable is missing.');
+    }
+
+    try {
+      jwt.verify(refreshToken, refreshSecret);
+    } catch (err: any) {
+      throw new AppError('Invalid or expired refresh token (JWT Verification Failed)', 401);
+    }
+
     const tokenHashValue = hashToken(refreshToken);
     const userId = await this.redisService.get(tokenHashValue);
 
     if (!userId) {
-      throw new AppError('Invalid or expired refresh token', 401);
+      throw new AppError('Invalid or expired refresh token (Session Not Found)', 401);
     }
 
     // Revoke the old refresh token by deleting it from Redis
