@@ -11,7 +11,7 @@ async function main() {
     }
     
     // Connect to local Cadence backend
-    const targetUrl = process.env.CADENCE_MCP_URL || "http://localhost:4001/api/mcp/sse";
+    const targetUrl = process.env.CADENCE_MCP_URL || "http://localhost:8080/api/mcp/sse";
     const sseTransport = new sse_js_1.SSEClientTransport(new URL(targetUrl), {
         eventSourceInit: {
             headers: { Authorization: `Bearer ${API_KEY}` },
