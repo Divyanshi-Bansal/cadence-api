@@ -176,6 +176,16 @@ export class AuthService {
   async login(email: string, password?: string): Promise<AuthResult> {
     const rawUser = await userRepository.findByEmailEncrypted(encryptDeterministic(email));
 
+    if (rawUser && !rawUser.passwordHash) {
+      if (rawUser.authProvider === 'GOOGLE') {
+        throw new AppError('This email is linked to a Google account. Please use "Continue with Google" to log in.', 400);
+      }
+      if (rawUser.authProvider === 'GITHUB') {
+        throw new AppError('This email is linked to a GitHub account. Please use "Continue with GitHub" to log in.', 400);
+      }
+      throw new AppError('Invalid email or password', 401);
+    }
+
     if (!rawUser || !rawUser.passwordHash) {
       throw new AppError('Invalid email or password', 401);
     }
