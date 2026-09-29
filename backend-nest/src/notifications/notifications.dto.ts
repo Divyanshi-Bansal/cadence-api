@@ -16,6 +16,7 @@ export const CreateNotificationSchema = z.object({
   title: z.string().min(1),
   body: z.string().optional(),
   entityId: z.string().optional(),
+  projectId: z.string().optional(),
 });
 
 export class CreateNotificationDto extends createZodDto(CreateNotificationSchema) {}

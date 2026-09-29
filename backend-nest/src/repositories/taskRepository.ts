@@ -173,13 +173,6 @@ export const taskRepository = {
         data: scalarFields,
       });
 
-      if (scalarFields.stageId) {
-        await tx.task.updateMany({
-          where: { parentTaskId: taskId },
-          data: { stageId: scalarFields.stageId },
-        });
-      }
-
       if (assigneeIds !== undefined) {
         await tx.taskAssignee.deleteMany({
           where: { taskId },

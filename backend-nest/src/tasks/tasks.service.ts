@@ -87,6 +87,7 @@ export class TasksService {
         title: `${actorName} created task ${taskRef}`,
         body: task.title,
         entityId: task.id,
+        projectId,
       });
     }
 
@@ -162,15 +163,21 @@ export class TasksService {
         diffs.push(`• Stage: ${oldName} → ${newName}`);
       }
 
-      if (data.dueDate !== undefined) {
+      const beforeDueDateStr = beforeTask.dueDate ? new Date(beforeTask.dueDate).toISOString().split('T')[0] : null;
+      const afterDueDateStr = updatedTask.dueDate ? new Date(updatedTask.dueDate).toISOString().split('T')[0] : null;
+      if (beforeDueDateStr !== afterDueDateStr) {
         diffs.push(`• Due date updated`);
       }
 
-      if (data.assigneeIds !== undefined) {
+      const beforeAssigneesStr = (beforeTask.assignees || []).map((a: any) => a.userId || a.user?.id).filter(Boolean).sort().join(',');
+      const afterAssigneesStr = (updatedTask.assignees || []).map((a: any) => a.userId || a.user?.id).filter(Boolean).sort().join(',');
+      if (beforeAssigneesStr !== afterAssigneesStr) {
         diffs.push(`• Assignees updated`);
       }
 
-      if (data.description !== undefined && JSON.stringify(beforeTask.description) !== JSON.stringify(updatedTask.description)) {
+      const beforeDescStr = typeof beforeTask.description === 'string' ? beforeTask.description : JSON.stringify(beforeTask.description || '');
+      const afterDescStr = typeof updatedTask.description === 'string' ? updatedTask.description : JSON.stringify(updatedTask.description || '');
+      if (data.description !== undefined && beforeDescStr !== afterDescStr) {
         diffs.push(`• Description updated`);
       }
 
@@ -199,6 +206,7 @@ export class TasksService {
             title: titleStr,
             body: bodyStr,
             entityId: updatedTask.id,
+            projectId,
           });
         }
 

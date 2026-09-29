@@ -100,6 +100,7 @@ export class CommentsService {
             title: `${actorName} commented on ${taskRef}`,
             body: commentSnippet,
             entityId: taskId,
+            projectId: task.projectId || projectId,
           });
         }
       }

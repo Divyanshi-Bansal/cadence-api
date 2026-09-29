@@ -69,6 +69,7 @@ export class NotificationsService {
         title: dto.title,
         body: dto.body,
         entityId: dto.entityId,
+        projectId: dto.projectId,
       },
       include: {
         actor: true,
