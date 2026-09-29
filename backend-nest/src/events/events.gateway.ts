@@ -65,6 +65,7 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       client.userId = payload.sub;
+      client.join(`user:${payload.sub}`);
     } catch (err: any) {
       this.logger.error(`WebSocket Auth Failed: ${err.message}`);
       client.disconnect();
@@ -169,6 +170,12 @@ export class EventsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   broadcastToProject(projectId: string, event: string, payload: any) {
     if (this.server) {
       this.server.to(`project:${projectId}`).emit(event, payload);
+    }
+  }
+
+  sendNotificationToUser(userId: string, notification: any) {
+    if (this.server) {
+      this.server.to(`user:${userId}`).emit('notification:new', notification);
     }
   }
 

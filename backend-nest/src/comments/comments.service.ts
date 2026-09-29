@@ -4,11 +4,14 @@ import { formatUser } from '../lib/userFormat';
 import { CreateCommentDto, UpdateCommentDto } from './comments.dto';
 import { EventsGateway } from '../events/events.gateway';
 
+import { NotificationsService } from '../notifications/notifications.service';
+
 @Injectable()
 export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly eventsGateway: EventsGateway,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private formatComment(c: any) {
@@ -67,6 +70,41 @@ export class CommentsService {
         comment: formatted,
         userId,
       });
+    }
+
+    try {
+      const task = await this.prisma.task.findUnique({
+        where: { id: taskId },
+        include: { assignees: true },
+      });
+      if (task) {
+        const actorName = formatted.user?.name || formatted.user?.email || 'A teammate';
+        const taskRef = task.issueKey || task.title;
+        const recipients = new Set<string>();
+        if (task.reporterId && task.reporterId !== userId) recipients.add(task.reporterId);
+        if (Array.isArray(task.assignees)) {
+          for (const a of task.assignees) {
+            if (a.userId && a.userId !== userId) recipients.add(a.userId);
+          }
+        }
+
+        const commentSnippet = typeof dto.content === 'string'
+          ? (dto.content.length > 80 ? dto.content.substring(0, 80) + '...' : dto.content)
+          : 'Added a new comment';
+
+        for (const recipientId of recipients) {
+          await this.notificationsService.createNotification({
+            userId: recipientId,
+            actorId: userId,
+            type: 'MENTIONED_IN_COMMENT',
+            title: `${actorName} commented on ${taskRef}`,
+            body: commentSnippet,
+            entityId: taskId,
+          });
+        }
+      }
+    } catch (e) {
+      // Non-blocking
     }
 
     return formatted;

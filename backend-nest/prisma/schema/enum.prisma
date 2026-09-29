@@ -32,3 +32,11 @@ enum AuthProvider {
   GOOGLE
   GITHUB
 }
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_DUE_SOON
+  MENTIONED_IN_COMMENT
+  PROJECT_INVITATION
+  STAGE_CHANGED
+}

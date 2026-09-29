@@ -47,15 +47,15 @@ const isProduction = process.env.NODE_ENV === "production";
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: isProduction,
-  sameSite: "strict" as const,
-  path: "/api/auth",
+  sameSite: isProduction ? ("none" as const) : ("lax" as const),
+  path: "/",
   maxAge: 30 * 24 * 60 * 60 * 1000,
 };
 
 const LOGGED_IN_COOKIE_OPTIONS = {
   httpOnly: false,
   secure: isProduction,
-  sameSite: "lax" as const,
+  sameSite: isProduction ? ("none" as const) : ("lax" as const),
   path: "/",
   maxAge: 30 * 24 * 60 * 60 * 1000,
 };
@@ -121,7 +121,7 @@ export class AuthController {
       res.cookie("cadence_logged_in", "true", LOGGED_IN_COOKIE_OPTIONS);
       return { user, accessToken };
     } catch (err) {
-      res.clearCookie("refreshToken", { path: "/api/auth" });
+      res.clearCookie("refreshToken", { path: "/" });
       res.clearCookie("cadence_logged_in", { path: "/" });
       throw err;
     }
@@ -134,7 +134,7 @@ export class AuthController {
     if (refreshToken) {
       await this.authService.logout(refreshToken);
     }
-    res.clearCookie("refreshToken", { path: "/api/auth" });
+    res.clearCookie("refreshToken", { path: "/" });
     res.clearCookie("cadence_logged_in", { path: "/" });
     return { message: "Logged out successfully" };
   }

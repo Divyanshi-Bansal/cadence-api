@@ -20,6 +20,10 @@ model User {
   magicLinkTokens MagicLinkToken[]
   personalAccessTokens PersonalAccessToken[]
   subscription    Subscription?
+  receivedNotifications Notification[] @relation("RecipientNotifications")
+  actedNotifications    Notification[] @relation("ActorNotifications")
+  uploadedAttachments   TaskAttachment[]
+  actedActivities       ActivityLog[]
 
   @@unique([authProvider, providerAccountId])
 }

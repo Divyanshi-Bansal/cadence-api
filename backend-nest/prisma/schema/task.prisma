@@ -23,7 +23,9 @@ model Task {
   subtasks         Task[]         @relation("Subtasks")
   reporter         User           @relation(fields: [reporterId], references: [id], onDelete: SetNull)
   assignees        TaskAssignee[]
-  comments         Comment[]      
+  comments         Comment[]
+  attachments      TaskAttachment[]
+  activities       ActivityLog[]
 
   @@index([projectId])
   @@index([stageId])

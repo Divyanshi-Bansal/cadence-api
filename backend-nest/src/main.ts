@@ -24,7 +24,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const port = Number(process.env.PORT) || 4000;
+  const port = Number(process.env.PORT) || 8080;
   await app.listen(port, '0.0.0.0');
   logger.log(`[NestJS] Cadence API Server is running on http://localhost:${port}/api`, 'Bootstrap');
 }

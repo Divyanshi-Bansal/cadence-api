@@ -8,6 +8,9 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   private isConnected = false;
   private hasLoggedOfflineWarning = false;
 
+  // In-memory fallback map for local development or when Redis server is unreachable
+  private fallbackStore = new Map<string, { value: string; expiresAt: number }>();
+
   onModuleInit() {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -18,7 +21,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
       retryStrategy: (times) => {
         if (times > 3) {
           if (!this.hasLoggedOfflineWarning) {
-            this.logger.warn(`[Redis] Unreachable at ${redisUrl}. Operating in fallback mode.`);
+            this.logger.warn(`[Redis] Unreachable at ${redisUrl}. Operating in memory fallback mode.`);
             this.hasLoggedOfflineWarning = true;
           }
           return null; // Stop reconnecting after 3 failed attempts
@@ -36,7 +39,7 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
     this.redisClient.on('error', (err) => {
       this.isConnected = false;
       if (!this.hasLoggedOfflineWarning) {
-        this.logger.warn(`Redis connection unavailable (${err.message || 'ECONNREFUSED'}). Operating in fallback mode.`);
+        this.logger.warn(`Redis connection unavailable (${err.message || 'ECONNREFUSED'}). Operating in memory fallback mode.`);
         this.hasLoggedOfflineWarning = true;
       }
     });
@@ -58,10 +61,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Set a key-value pair in Redis with an optional TTL (in seconds)
+   * Set a key-value pair in Redis or fallback memory store with optional TTL (in seconds)
    */
   async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
-    if (!this.redisClient || !this.isConnected) return;
+    const expiresAt = ttlSeconds ? Date.now() + ttlSeconds * 1000 : Infinity;
+
+    if (!this.redisClient || !this.isConnected) {
+      this.fallbackStore.set(key, { value, expiresAt });
+      return;
+    }
+
     try {
       if (ttlSeconds) {
         await this.redisClient.set(key, value, 'EX', ttlSeconds);
@@ -69,27 +78,54 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
         await this.redisClient.set(key, value);
       }
     } catch (error) {
-      this.logger.warn(`Redis SET failed for key "${key}": ${(error as Error).message}`);
+      this.logger.warn(`Redis SET failed for key "${key}": ${(error as Error).message}. Using in-memory fallback.`);
+      this.fallbackStore.set(key, { value, expiresAt });
     }
   }
 
   /**
-   * Get a value from Redis by key
+   * Get a value from Redis or fallback memory store by key
    */
   async get(key: string): Promise<string | null> {
-    if (!this.redisClient || !this.isConnected) return null;
+    if (!this.redisClient || !this.isConnected) {
+      const record = this.fallbackStore.get(key);
+      if (!record) return null;
+      if (record.expiresAt < Date.now()) {
+        this.fallbackStore.delete(key);
+        return null;
+      }
+      return record.value;
+    }
+
     try {
-      return await this.redisClient.get(key);
+      const val = await this.redisClient.get(key);
+      if (val !== null) return val;
+      
+      // Fallback check
+      const record = this.fallbackStore.get(key);
+      if (!record) return null;
+      if (record.expiresAt < Date.now()) {
+        this.fallbackStore.delete(key);
+        return null;
+      }
+      return record.value;
     } catch (error) {
-      this.logger.warn(`Redis GET failed for key "${key}": ${(error as Error).message}`);
-      return null;
+      this.logger.warn(`Redis GET failed for key "${key}": ${(error as Error).message}. Using in-memory fallback.`);
+      const record = this.fallbackStore.get(key);
+      if (!record) return null;
+      if (record.expiresAt < Date.now()) {
+        this.fallbackStore.delete(key);
+        return null;
+      }
+      return record.value;
     }
   }
 
   /**
-   * Delete a key from Redis
+   * Delete a key from Redis and fallback memory store
    */
   async del(key: string): Promise<void> {
+    this.fallbackStore.delete(key);
     if (!this.redisClient || !this.isConnected) return;
     try {
       await this.redisClient.del(key);
