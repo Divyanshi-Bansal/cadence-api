@@ -4,46 +4,116 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const sse_js_1 = require("@modelcontextprotocol/sdk/client/sse.js");
 const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 
-// Set your production Render URL here before publishing!
-const PRODUCTION_URL = process.env.CADENCE_API_URL || "https://cadence-api-42rj.onrender.com/api/mcp/sse";
+const TARGET_URL = process.env.CADENCE_API_URL || process.env.CADENCE_MCP_URL || "https://cadence-api-42rj.onrender.com/api/mcp/sse";
 
 async function main() {
     const API_KEY = process.env.CADENCE_API_KEY;
     if (!API_KEY) {
-        console.error("Missing CADENCE_API_KEY environment variable in Claude Desktop config!");
+        console.error("Missing CADENCE_API_KEY environment variable in Claude Desktop / Cursor config!");
         process.exit(1);
     }
-    
-    // Connect to remote Cadence backend
-    const sseTransport = new sse_js_1.SSEClientTransport(new URL(PRODUCTION_URL), {
-        eventSourceInit: {
-            headers: { Authorization: `Bearer ${API_KEY}` },
-        },
-        requestInit: {
-            headers: { Authorization: `Bearer ${API_KEY}` },
-        },
-    });
-    
+
     const stdioTransport = new stdio_js_1.StdioServerTransport();
-    
-    // Bridge messages
-    sseTransport.onmessage = async (message) => { await stdioTransport.send(message); };
-    stdioTransport.onmessage = async (message) => { await sseTransport.send(message); };
-    sseTransport.onerror = (error) => {
-        console.error("SSE Error:", error);
-        process.exit(1);
+    let currentSseTransport = null;
+    let isConnecting = false;
+    const messageQueue = [];
+
+    async function connectSSE(retryCount = 0) {
+        if (isConnecting) return;
+        isConnecting = true;
+
+        try {
+            if (currentSseTransport) {
+                try {
+                    await currentSseTransport.close();
+                } catch (_) {}
+                currentSseTransport = null;
+            }
+
+            const sseTransport = new sse_js_1.SSEClientTransport(new URL(TARGET_URL), {
+                eventSourceInit: {
+                    headers: { Authorization: `Bearer ${API_KEY}` },
+                },
+                requestInit: {
+                    headers: { Authorization: `Bearer ${API_KEY}` },
+                },
+            });
+
+            sseTransport.onmessage = async (message) => {
+                try {
+                    await stdioTransport.send(message);
+                } catch (err) {
+                    console.error("[Bridge] Failed to forward message to stdio:", err);
+                }
+            };
+
+            sseTransport.onerror = (error) => {
+                console.error("[Bridge] SSE connection notice:", error?.message || error);
+                // Do NOT call process.exit(1) on transient connection drop; auto-reconnect instead
+                scheduleReconnect();
+            };
+
+            sseTransport.onclose = () => {
+                console.error("[Bridge] SSE connection closed. Reconnecting...");
+                scheduleReconnect();
+            };
+
+            await sseTransport.start();
+            currentSseTransport = sseTransport;
+            isConnecting = false;
+            console.error("✅ Bridge is connected to Cadence MCP SSE at:", TARGET_URL);
+
+            // Flush queued messages from stdio if any
+            while (messageQueue.length > 0) {
+                const msg = messageQueue.shift();
+                if (currentSseTransport) {
+                    await currentSseTransport.send(msg);
+                }
+            }
+        } catch (err) {
+            isConnecting = false;
+            const delay = Math.min(1000 * Math.pow(1.5, retryCount), 15000);
+            console.error(`[Bridge] Connection error (${err?.message || err}). Reconnecting in ${(delay / 1000).toFixed(1)}s...`);
+            setTimeout(() => connectSSE(retryCount + 1), delay);
+        }
+    }
+
+    let reconnectTimer = null;
+    function scheduleReconnect() {
+        if (reconnectTimer || isConnecting) return;
+        reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            connectSSE();
+        }, 3000);
+    }
+
+    // Forward messages from Claude Desktop / Cursor (Stdio) to SSE backend
+    stdioTransport.onmessage = async (message) => {
+        if (currentSseTransport) {
+            try {
+                await currentSseTransport.send(message);
+            } catch (err) {
+                console.error("[Bridge] Failed to send message to SSE, queueing for retry:", err);
+                messageQueue.push(message);
+                scheduleReconnect();
+            }
+        } else {
+            messageQueue.push(message);
+            scheduleReconnect();
+        }
     };
+
     stdioTransport.onerror = (error) => {
-        console.error("Stdio Error:", error);
-        process.exit(1);
+        console.error("[Bridge] Stdio Error:", error);
     };
-    
-    await sseTransport.start();
+
     try {
-        if ('start' in stdioTransport) { await stdioTransport.start(); }
-    } catch (e) { }
-    
-    console.error("✅ Bridge is running. Claude Desktop is now connected to Cadence SSE.");
+        if ('start' in stdioTransport) {
+            await stdioTransport.start();
+        }
+    } catch (e) {}
+
+    await connectSSE();
 }
 
 main().catch((err) => {

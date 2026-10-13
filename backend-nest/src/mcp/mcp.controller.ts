@@ -8,6 +8,7 @@ import crypto from 'crypto';
 @Controller('mcp')
 export class McpController {
   private activeTransports = new Map<string, SSEServerTransport>();
+  private activeServers = new Map<string, any>();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -44,17 +45,43 @@ export class McpController {
     const userId = await this.authenticateApiKey(req);
     console.log(`[MCP Nest] New SSE connection from user ${userId}`);
 
+    // Essential reverse proxy headers (prevents Render, Nginx, ALB buffering & premature disconnects)
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+
     const transport = new SSEServerTransport('/api/mcp/message', res);
     const sessionId = transport.sessionId;
 
     const server = createCadenceMcpServer();
     this.activeTransports.set(sessionId, transport);
+    this.activeServers.set(sessionId, server);
 
     await server.connect(transport);
 
-    res.on('close', () => {
+    // Heartbeat every 15s prevents cloud reverse proxy (Render 60s/100s) idle timeouts
+    const keepAliveTimer = setInterval(() => {
+      if (!res.writableEnded && res.writable) {
+        res.write(': keepalive\n\n');
+      }
+    }, 15000);
+
+    res.on('error', (err) => {
+      console.error(`[MCP Nest] SSE socket error for session ${sessionId}:`, err);
+    });
+
+    res.on('close', async () => {
+      clearInterval(keepAliveTimer);
       console.log(`[MCP Nest] SSE connection closed for session ${sessionId}`);
       this.activeTransports.delete(sessionId);
+      const activeServer = this.activeServers.get(sessionId);
+      if (activeServer) {
+        this.activeServers.delete(sessionId);
+        try {
+          await activeServer.close();
+        } catch (_) {}
+      }
     });
   }
 

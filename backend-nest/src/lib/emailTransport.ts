@@ -19,6 +19,9 @@ export const transporter = hasSmtpConfig
         user: smtpUser,
         pass: smtpPass,
       },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 15000,
     })
   : null;
 

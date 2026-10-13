@@ -88,7 +88,10 @@ export class InvitationsService {
       } catch (e) {}
     }
 
-    await sendInvitationEmail(email, inviterName, project.name, inviteLink);
+    // Dispatch invitation email asynchronously in background so client receives immediate response
+    sendInvitationEmail(email, inviterName, project.name, inviteLink).catch((err) => {
+      console.error('[InvitationsService] Failed to send invitation email in background:', err);
+    });
 
     return { message: 'Invitation sent successfully.', invitationId: invitation.id, invitation };
   }
