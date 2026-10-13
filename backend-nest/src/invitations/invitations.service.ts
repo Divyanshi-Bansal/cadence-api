@@ -2,7 +2,7 @@ import { Injectable, ForbiddenException, NotFoundException, ConflictException, B
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
 import { SubscriptionService } from './subscription.service';
-import { sendInvitationEmail } from '../lib/email';
+import { sendInvitationEmail, sendInvitationAcceptedEmail } from '../lib/email';
 import * as crypto from 'crypto';
 import { encryptDeterministic, decrypt } from '../lib/crypto';
 import { formatUser } from '../lib/userFormat';
@@ -114,7 +114,10 @@ export class InvitationsService {
   }
 
   async acceptInvitation(userId: string, token: string) {
-    const invitation = await this.prisma.invitation.findUnique({ where: { token } });
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { token },
+      include: { project: true },
+    });
 
     if (!invitation || !invitation.projectId) {
       throw new NotFoundException('Invitation not found.');
@@ -158,6 +161,30 @@ export class InvitationsService {
         throw new ConflictException('You are already a member of this project.');
       }
       throw error;
+    }
+
+    // Safely dispatch confirmation email to the person who accepted the invitation
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const projectLink = `${frontendUrl}/projects/${invitation.projectId}`;
+    const projectName = invitation.project?.name || 'Project';
+
+    let userName = 'there';
+    if (user.nameEncrypted) {
+      try {
+        userName = decrypt(user.nameEncrypted) || 'there';
+      } catch (e) {}
+    }
+
+    try {
+      await sendInvitationAcceptedEmail(
+        invitation.email,
+        userName,
+        projectName,
+        invitation.role || 'MEMBER',
+        projectLink,
+      );
+    } catch (err: any) {
+      console.error('[InvitationsService] Failed to send acceptance confirmation email:', err);
     }
 
     return { message: 'Invitation accepted successfully.', projectId: invitation.projectId };
