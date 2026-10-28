@@ -1,0 +1,35 @@
+{
+  "version": "1.0.0",
+  "capsuleId": "4b0bc83e-1357-4185-9108-e419f6c3f831",
+  "createdAt": "2026-10-28T05:09:40.446Z",
+  "sourceAgent": "antigravity",
+  "author": "AnshulVatsOfficial",
+  "git": {
+    "repository": "https://github.com/Divyanshi-Bansal/cadence-api.git",
+    "branch": "main",
+    "commitSha": "bac1244282cb6683ded844dba6b8c37b8557c674",
+    "contextKey": "df576a8f1763521b"
+  },
+  "handover": {
+    "objective": "look at the JSON in claude tab. we need similar/identical JSON in other tabs as well.",
+    "completedMilestones": [],
+    "observedActivity": [
+      "Working tree edits captured in git snapshot"
+    ],
+    "failedAttempts": [],
+    "currentBlockerOrActiveState": "Last assistant state: The environment tabs in [page.tsx](file:///C:/Users/Fiftyfive/Desktop/cadence/cadence-web/frontend/app/projects/api-keys/page.tsx) have b...",
+    "criticalFiles": [],
+    "importantDecisions": [],
+    "environmentConstraints": [],
+    "suggestedNextAction": "Review recent changes and resume task",
+    "primedResumePrompt": "You are resuming an in-flight development session.\nObjective: look at the JSON in claude tab. we need similar/identical JSON in other tabs as well.\nCritical Files: See working tree changes\nRecent instructions:\n- look at the JSON in claude tab. we need similar/identical JSON in other tabs as well.\nPlease inspect these files and continue from where we left off.",
+    "confidence": {
+      "objective": "high",
+      "currentState": "medium"
+    }
+  },
+  "securitySummary": {
+    "redactedSecretsCount": 0,
+    "excludedFiles": []
+  }
+}
